@@ -3,8 +3,8 @@ import 'package:tailor_assistant/modules/calculations/components/calculation_res
 import 'package:tailor_assistant/modules/customers/components/customer_component.dart';
 import 'package:tailor_assistant/modules/customers/components/measurement_component.dart';
 import 'package:tailor_assistant/modules/customers/customer_events.dart';
-import 'package:tailor_assistant/modules/persistence/persistence_events.dart';
-import 'package:nexus/nexus.dart' hide SaveDataEvent;
+import 'package:nexus/nexus.dart';
+import 'package:tailor_assistant/modules/persistence/persistence_system.dart';
 
 /// The core logic system for managing customer data.
 class CustomerSystem extends System {

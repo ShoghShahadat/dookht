@@ -1,11 +1,16 @@
+// FILE: lib/modules/customers/customer_system.dart
+// (English comments for code clarity)
+
 import 'package:collection/collection.dart';
 import 'package:tailor_assistant/modules/calculations/components/calculation_result_component.dart';
 import 'package:tailor_assistant/modules/calculations/components/calculation_state_component.dart';
 import 'package:tailor_assistant/modules/customers/components/customer_component.dart';
 import 'package:tailor_assistant/modules/customers/components/measurement_component.dart';
 import 'package:tailor_assistant/modules/customers/customer_events.dart';
-import 'package:tailor_assistant/modules/persistence/persistence_events.dart';
-import 'package:nexus/nexus.dart' hide SaveDataEvent;
+// --- FIXED: Import the correct DataLoadedEvent from the persistence system itself ---
+import 'package:tailor_assistant/modules/persistence/persistence_system.dart';
+// --- FIXED: Import the entire nexus package to get the correct SaveDataEvent ---
+import 'package:nexus/nexus.dart';
 
 /// The core logic system for managing customer data.
 class CustomerSystem extends System {
@@ -55,6 +60,8 @@ class CustomerSystem extends System {
       listContainer.add(ChildrenComponent(newChildren));
     }
 
+    // --- FIXED: Fire the correct SaveDataEvent from the nexus package ---
+    // This ensures the PersistenceSystem hears the event and saves the new customer immediately.
     world.eventBus.fire(SaveDataEvent());
   }
 

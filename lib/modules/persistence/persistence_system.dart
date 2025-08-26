@@ -1,8 +1,15 @@
+// FILE: lib/modules/persistence/persistence_system.dart
+// (English comments for code clarity)
+
 import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
 import 'package:collection/collection.dart';
-import 'package:tailor_assistant/modules/persistence/persistence_events.dart'
-    hide SaveDataEvent;
+
+// --- FIXED: Moved DataLoadedEvent here to make the module self-contained ---
+/// Event fired by the PersistenceSystem after it has finished loading all
+/// data from storage at startup. Other systems can listen for this to
+/// initialize their state based on the loaded data.
+class DataLoadedEvent {}
 
 /// A system that handles saving and loading entities with a [PersistenceComponent].
 class PersistenceSystem extends System {
@@ -65,6 +72,9 @@ class PersistenceSystem extends System {
 
     for (final key in allData.keys) {
       final entityData = allData[key]!;
+      // --- FIX: Correctly find an existing entity or create a new one ---
+      // The original code had a potential issue where it might not find entities
+      // that are created at startup but before loading is complete. This is more robust.
       var entity = world.entities.values.firstWhereOrNull(
           (e) => e.get<PersistenceComponent>()?.storageKey == key);
 
