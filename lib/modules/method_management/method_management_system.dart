@@ -1,3 +1,6 @@
+// FILE: lib/modules/method_management/method_management_system.dart
+// (English comments for code clarity)
+
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
 import 'method_management_events.dart';
@@ -10,6 +13,23 @@ class MethodManagementSystem extends System {
     listen<UpdatePatternMethodEvent>(_onUpdateMethod);
     listen<CreatePatternMethodEvent>(_onCreateMethod);
     listen<DeletePatternMethodEvent>(_onDeleteMethod);
+    // --- FINAL FIX: Listen for the data loaded event ---
+    listen<DataLoadedEvent>(_onDataLoaded);
+  }
+
+  // --- FINAL FIX: Add a handler for when data is loaded from storage ---
+  void _onDataLoaded(DataLoadedEvent event) {
+    // Find all pattern method entities that were loaded from storage.
+    final methodEntities = world.entities.values
+        .where((e) => e.has<PatternMethodComponent>())
+        .toList();
+
+    for (final method in methodEntities) {
+      // Ensure every loaded method is marked as persistent to prevent garbage collection.
+      if (!method.has<LifecyclePolicyComponent>()) {
+        method.add(LifecyclePolicyComponent(isPersistent: true));
+      }
+    }
   }
 
   void _onUpdateMethod(UpdatePatternMethodEvent event) {
@@ -55,11 +75,6 @@ class MethodManagementSystem extends System {
     final methodEntity = world.entities[event.methodId];
     if (methodEntity == null) return;
 
-    // To properly delete, we first need to remove its persistence record.
-    // A robust way is to remove the PersistenceComponent and save,
-    // which the persistence system should handle as a deletion from storage.
-    // For this implementation, we'll just remove the entity from the world.
-    // A more advanced persistence system could handle this better.
     world.removeEntity(event.methodId);
     world.eventBus.fire(SaveDataEvent());
     print("Method with ID ${event.methodId} deleted.");

@@ -7,9 +7,6 @@ import 'package:tailor_assistant/modules/calculations/components/calculation_sta
 import 'package:tailor_assistant/modules/customers/components/customer_component.dart';
 import 'package:tailor_assistant/modules/customers/components/measurement_component.dart';
 import 'package:tailor_assistant/modules/customers/customer_events.dart';
-// --- FIXED: Import the correct DataLoadedEvent from the persistence system itself ---
-import 'package:tailor_assistant/modules/persistence/persistence_system.dart';
-// --- FIXED: Import the entire nexus package to get the correct SaveDataEvent ---
 import 'package:nexus/nexus.dart';
 
 /// The core logic system for managing customer data.
@@ -22,30 +19,41 @@ class CustomerSystem extends System {
   }
 
   void _onDataLoaded(DataLoadedEvent event) {
-    final allCustomers = world.entities.values
+    // Find all entities that have been loaded and are tagged as 'customer'.
+    final customerEntities = world.entities.values
         .where((e) => e.get<TagsComponent>()?.hasTag('customer') ?? false)
-        .map((e) => e.id)
         .toList();
 
+    final customerIds = <EntityId>[];
+    for (final customer in customerEntities) {
+      // --- FINAL FIX: This is the correct place to ensure persistence. ---
+      // If a loaded customer doesn't have a lifecycle policy, add one.
+      // This prevents the GarbageCollector from deleting them.
+      if (!customer.has<LifecyclePolicyComponent>()) {
+        customer.add(LifecyclePolicyComponent(isPersistent: true));
+      }
+      customerIds.add(customer.id);
+    }
+
+    // Update the UI container with the list of loaded (and now safe) customers.
     final listContainer = _getListContainer();
     if (listContainer != null) {
-      listContainer.add(ChildrenComponent(allCustomers));
+      listContainer.add(ChildrenComponent(customerIds));
     }
   }
 
   void _onAddCustomer(AddCustomerEvent event) {
     final newCustomer = Entity()
       ..add(TagsComponent({'customer'}))
-      ..add(LifecyclePolicyComponent(isPersistent: true))
+      ..add(LifecyclePolicyComponent(
+          isPersistent: true)) // Correctly set on creation
       ..add(CustomerComponent(
         firstName: event.firstName,
         lastName: event.lastName,
         phone: event.phone,
       ))
-      // Add empty components to initialize the customer's state.
       ..add(MeasurementComponent())
       ..add(CalculationResultComponent())
-      // Add the new calculation state component.
       ..add(CalculationStateComponent())
       ..add(PersistenceComponent(
           'customer_${DateTime.now().millisecondsSinceEpoch}'));
@@ -60,8 +68,7 @@ class CustomerSystem extends System {
       listContainer.add(ChildrenComponent(newChildren));
     }
 
-    // --- FIXED: Fire the correct SaveDataEvent from the nexus package ---
-    // This ensures the PersistenceSystem hears the event and saves the new customer immediately.
+    // Fire the correct event to trigger immediate saving.
     world.eventBus.fire(SaveDataEvent());
   }
 
