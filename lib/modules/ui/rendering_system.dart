@@ -1,8 +1,7 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
-import 'package:nexus/src/components/decoration_components.dart';
 
+import '../calculations/ui/calculation_page_builder.dart';
 import '../customers/ui/add_customer_form_builder.dart';
 import '../customers/ui/customer_list_builder.dart';
 import 'theme_selector/theme_selector_builder.dart';
@@ -15,6 +14,7 @@ class AppRenderingSystem extends FlutterRenderingSystem {
     'theme_selector': ThemeSelectorBuilder(),
     'customer_list': CustomerListBuilder(),
     'add_customer_form': AddCustomerFormBuilder(),
+    'calculation_page': CalculationPageBuilder(), // Register the new builder
   };
 
   @override
@@ -28,15 +28,10 @@ class AppRenderingSystem extends FlutterRenderingSystem {
         final viewManagerId = getAllIdsWithTag('view_manager').firstOrNull;
 
         return Scaffold(
-          // The background is always present.
           body: Stack(
             children: [
               if (backgroundId != null) _buildBackground(context, backgroundId),
-
-              // The main content is determined by the ViewManager.
               if (viewManagerId != null) _buildMainView(context, viewManagerId),
-
-              // The theme selector can be overlaid on top.
               if (themeSelectorId != null)
                 Positioned(
                   bottom: 20,
@@ -51,8 +46,6 @@ class AppRenderingSystem extends FlutterRenderingSystem {
     );
   }
 
-  /// This is the core routing logic for the UI.
-  /// It reads the current view state and delegates building to the appropriate builder.
   Widget _buildMainView(BuildContext context, EntityId viewManagerId) {
     return AnimatedBuilder(
       animation: getNotifier(viewManagerId),
@@ -62,27 +55,30 @@ class AppRenderingSystem extends FlutterRenderingSystem {
 
         switch (currentView) {
           case AppView.customerList:
-            final customerListId =
-                getAllIdsWithTag('customer_list_container').firstOrNull;
-            if (customerListId != null) {
-              return _widgetBuilders['customer_list']!
-                  .build(context, this, customerListId);
+            final id = getAllIdsWithTag('customer_list_container').firstOrNull;
+            if (id != null) {
+              return _widgetBuilders['customer_list']!.build(context, this, id);
             }
           case AppView.addCustomerForm:
-            final addFormId = getAllIdsWithTag('add_customer_form').firstOrNull;
-            if (addFormId != null) {
+            final id = getAllIdsWithTag('add_customer_form').firstOrNull;
+            if (id != null) {
               return _widgetBuilders['add_customer_form']!
-                  .build(context, this, addFormId);
+                  .build(context, this, id);
+            }
+          // Add the case for the new calculation page.
+          case AppView.calculationPage:
+            final id = getAllIdsWithTag('calculation_page').firstOrNull;
+            if (id != null) {
+              return _widgetBuilders['calculation_page']!
+                  .build(context, this, id);
             }
         }
-        // Return a fallback widget if the required entity is not found yet.
         return const Center(child: CircularProgressIndicator());
       },
     );
   }
 
   Widget _buildThemeSelector(BuildContext context, EntityId themeSelectorId) {
-    // This UI component is self-contained.
     return _widgetBuilders['theme_selector']!
         .build(context, this, themeSelectorId);
   }

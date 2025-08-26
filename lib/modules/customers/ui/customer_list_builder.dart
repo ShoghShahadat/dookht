@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
 import '../../ui/rendering_system.dart';
 import '../components/customer_component.dart';
+import '../customer_events.dart';
 
 /// A dedicated and self-contained widget builder for the customer list screen.
 class CustomerListBuilder implements IWidgetBuilder {
@@ -78,60 +79,70 @@ class CustomerListBuilder implements IWidgetBuilder {
           builder: (context, _) {
             final customer = rs.get<CustomerComponent>(customerId);
             if (customer == null) return const SizedBox.shrink();
-            return _buildCustomerCard(customer, textColor);
+            return _buildCustomerCard(
+                context, rs, customerId, customer, textColor);
           },
         );
       },
     );
   }
 
-  Widget _buildCustomerCard(CustomerComponent customer, Color textColor) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(15),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: Colors.white.withOpacity(0.2),
-                child: Text(
-                  customer.firstName.isNotEmpty ? customer.firstName[0] : '',
-                  style:
-                      TextStyle(color: textColor, fontWeight: FontWeight.bold),
+  Widget _buildCustomerCard(BuildContext context, FlutterRenderingSystem rs,
+      EntityId customerId, CustomerComponent customer, Color textColor) {
+    return GestureDetector(
+      onTap: () {
+        // When a customer card is tapped, fire an event to show their calculation page.
+        rs.manager?.send(ShowCalculationPageEvent(customerId));
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(15),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  child: Text(
+                    customer.firstName.isNotEmpty
+                        ? customer.firstName[0].toUpperCase()
+                        : '',
+                    style: TextStyle(
+                        color: textColor, fontWeight: FontWeight.bold),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${customer.firstName} ${customer.lastName}',
-                      style: TextStyle(
-                          color: textColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      customer.phone,
-                      style: TextStyle(
-                          color: textColor.withOpacity(0.7), fontSize: 14),
-                    ),
-                  ],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${customer.firstName} ${customer.lastName}',
+                        style: TextStyle(
+                            color: textColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        customer.phone,
+                        style: TextStyle(
+                            color: textColor.withOpacity(0.7), fontSize: 14),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Icon(Icons.arrow_forward_ios,
-                  color: textColor.withOpacity(0.5), size: 16),
-            ],
+                Icon(Icons.arrow_forward_ios,
+                    color: textColor.withOpacity(0.5), size: 16),
+              ],
+            ),
           ),
         ),
       ),

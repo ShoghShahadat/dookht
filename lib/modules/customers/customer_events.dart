@@ -6,6 +6,12 @@ class ShowCustomerListEvent {}
 /// Event fired to show the form for adding a new customer.
 class ShowAddCustomerFormEvent {}
 
+/// Event fired to show the calculation page for a specific customer.
+class ShowCalculationPageEvent {
+  final EntityId customerId;
+  ShowCalculationPageEvent(this.customerId);
+}
+
 /// Event fired when a new customer's data is submitted from the form.
 class AddCustomerEvent {
   final String firstName;

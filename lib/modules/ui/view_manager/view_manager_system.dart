@@ -9,36 +9,27 @@ class ViewManagerSystem extends System {
   @override
   void onAddedToWorld(NexusWorld world) {
     super.onAddedToWorld(world);
-
-    // Ensure the central view manager entity exists.
-    _ensureViewManagerEntity();
-
-    // Listen for navigation events.
     listen<ShowCustomerListEvent>((_) => _changeView(AppView.customerList));
     listen<ShowAddCustomerFormEvent>(
         (_) => _changeView(AppView.addCustomerForm));
+    // Listen for the event to show the calculation page.
+    listen<ShowCalculationPageEvent>((event) =>
+        _changeView(AppView.calculationPage, customerId: event.customerId));
   }
 
-  void _changeView(AppView view) {
+  void _changeView(AppView view, {EntityId? customerId}) {
     final viewManager = _getViewManagerEntity();
     if (viewManager != null) {
-      viewManager.add(ViewStateComponent(currentView: view));
+      viewManager.add(ViewStateComponent(
+        currentView: view,
+        activeCustomerId: customerId,
+      ));
     }
   }
 
   Entity? _getViewManagerEntity() {
     return world.entities.values.firstWhereOrNull(
         (e) => e.get<TagsComponent>()?.hasTag('view_manager') ?? false);
-  }
-
-  void _ensureViewManagerEntity() {
-    if (_getViewManagerEntity() == null) {
-      final viewManager = Entity()
-        ..add(TagsComponent({'view_manager'}))
-        ..add(LifecyclePolicyComponent(isPersistent: true))
-        ..add(ViewStateComponent(currentView: AppView.customerList));
-      world.addEntity(viewManager);
-    }
   }
 
   @override
