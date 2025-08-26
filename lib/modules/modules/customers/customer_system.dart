@@ -1,9 +1,9 @@
 import 'package:collection/collection.dart';
-import 'package:mariya/modules/calculations/components/calculation_result_component.dart';
-import 'package:mariya/modules/customers/components/customer_component.dart';
-import 'package:mariya/modules/customers/components/measurement_component.dart';
-import 'package:mariya/modules/customers/customer_events.dart';
-import 'package:mariya/modules/persistence/persistence_events.dart';
+import 'package:tailor_assistant/modules/calculations/components/calculation_result_component.dart';
+import 'package:tailor_assistant/modules/customers/components/customer_component.dart';
+import 'package:tailor_assistant/modules/customers/components/measurement_component.dart';
+import 'package:tailor_assistant/modules/customers/customer_events.dart';
+import 'package:tailor_assistant/modules/persistence/persistence_events.dart';
 import 'package:nexus/nexus.dart' hide SaveDataEvent;
 
 /// The core logic system for managing customer data.

@@ -6,10 +6,12 @@ import 'package:nexus/nexus.dart' hide ThemeProviderService;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/component_registry.dart';
+import 'modules/calculations/calculation_module.dart';
 import 'modules/calculations/calculation_page_module.dart';
 import 'modules/customers/add_customer_form_module.dart';
 import 'modules/customers/customer_list_module.dart';
 import 'modules/input/input_module.dart';
+import 'modules/lifecycle/app_lifecycle_module.dart';
 import 'modules/persistence/persistence_module.dart';
 import 'modules/theming/theming_module.dart';
 import 'modules/theming/theme_provider.dart';
@@ -60,13 +62,15 @@ class TailorAssistantApp extends StatelessWidget {
           final world = NexusWorld();
           world.loadModule(InputModule());
           world.loadModule(PersistenceModule());
+          world.loadModule(AppLifecycleModule()); // Add the lifecycle module
           world.loadModule(ThemingModule());
           world.loadModule(MainScreenModule());
           world.loadModule(ThemeSelectorModule());
           world.loadModule(CustomerListModule());
           world.loadModule(AddCustomerFormModule());
           world.loadModule(ViewManagerModule());
-          world.loadModule(CalculationPageModule()); // Add the new module
+          world.loadModule(CalculationPageModule());
+          world.loadModule(CalculationModule());
           return world;
         },
       ),

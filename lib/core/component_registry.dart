@@ -1,6 +1,7 @@
 import 'package:nexus/nexus.dart';
 
 // Import all custom serializable components from the project.
+import '../modules/calculations/components/calculation_result_component.dart';
 import '../modules/customers/components/customer_component.dart';
 import '../modules/customers/components/measurement_component.dart';
 import '../modules/ui/view_manager/view_manager_component.dart';
@@ -20,10 +21,15 @@ void registerCustomComponents() {
     (json) => ViewStateComponent.fromJson(json),
   );
 
-  // Register the new measurement component.
   registry.register(
     'MeasurementComponent',
     (json) => MeasurementComponent.fromJson(json),
+  );
+
+  // Register the new calculation result component.
+  registry.register(
+    'CalculationResultComponent',
+    (json) => CalculationResultComponent.fromJson(json),
   );
 
   // Add any new serializable components here in the future.

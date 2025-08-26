@@ -1,7 +1,7 @@
-name: mariya
-description: a
-version: 1.0.0
+name: tailor_assistant
+description: A powerful pattern calculation assistant for tailors.
 publish_to: 'none'
+version: 1.0.0
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -10,7 +10,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
+  get_it: ^7.7.0
+  shared_preferences: ^2.2.3
+  collection: ^1.18.0
   # In a real monorepo, you would use a path dependency.
   # For this example, we assume nexus is published or a path dependency is set up.
 dependency_overrides:

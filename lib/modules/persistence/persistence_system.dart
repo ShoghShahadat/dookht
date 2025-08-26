@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
 import 'package:collection/collection.dart';
-import 'persistence_events.dart' hide SaveDataEvent;
+import 'package:tailor_assistant/modules/persistence/persistence_events.dart'
+    hide SaveDataEvent;
 
 /// A system that handles saving and loading entities with a [PersistenceComponent].
 class PersistenceSystem extends System {
@@ -11,6 +12,7 @@ class PersistenceSystem extends System {
   @override
   void onAddedToWorld(NexusWorld world) {
     super.onAddedToWorld(world);
+    // Listen for the framework's built-in SaveDataEvent.
     listen<SaveDataEvent>(_handleSave);
   }
 
@@ -30,6 +32,11 @@ class PersistenceSystem extends System {
     final entitiesToSave =
         world.entities.values.where((e) => e.has<PersistenceComponent>());
 
+    if (entitiesToSave.isEmpty) return;
+
+    debugPrint(
+        '[PersistenceSystem] Received SaveDataEvent. Saving ${entitiesToSave.length} entities...');
+
     for (final entity in entitiesToSave) {
       final key = entity.get<PersistenceComponent>()!.storageKey;
       final entityJson = <String, dynamic>{};
@@ -41,6 +48,7 @@ class PersistenceSystem extends System {
         }
       }
       await _storage!.save('nexus_$key', entityJson);
+      debugPrint('[PersistenceSystem] -> Saved data for key: $key');
     }
   }
 
@@ -51,14 +59,12 @@ class PersistenceSystem extends System {
     final allData = await _storage!.loadAll();
     if (allData.isEmpty) {
       debugPrint('[PersistenceSystem] No data to load.');
-      world.eventBus.fire(DataLoadedEvent()); // Fire event even if no data
+      world.eventBus.fire(DataLoadedEvent());
       return;
     }
 
-    // Re-create entities from saved data.
     for (final key in allData.keys) {
       final entityData = allData[key]!;
-      // Find if an entity with this persistence key already exists (e.g. from a module)
       var entity = world.entities.values.firstWhereOrNull(
           (e) => e.get<PersistenceComponent>()?.storageKey == key);
 
@@ -83,7 +89,6 @@ class PersistenceSystem extends System {
 
     debugPrint(
         '[PersistenceSystem] Loaded ${allData.length} entities from storage.');
-    // Notify the rest of the app that the initial data load is complete.
     world.eventBus.fire(DataLoadedEvent());
   }
 

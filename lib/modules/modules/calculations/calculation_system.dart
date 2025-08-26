@@ -1,6 +1,6 @@
-import 'package:mariya/modules/calculations/calculation_events.dart';
-import 'package:mariya/modules/calculations/components/calculation_result_component.dart';
-import 'package:mariya/modules/customers/components/measurement_component.dart';
+import 'package:tailor_assistant/modules/calculations/calculation_events.dart';
+import 'package:tailor_assistant/modules/calculations/components/calculation_result_component.dart';
+import 'package:tailor_assistant/modules/customers/components/measurement_component.dart';
 import 'package:nexus/nexus.dart';
 
 /// The core logic system that performs all pattern calculations.
