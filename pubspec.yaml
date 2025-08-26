@@ -12,10 +12,13 @@ dependencies:
     sdk: flutter
   get_it: ^7.7.0
   expressions: ^0.2.5+2
-  shared_preferences: ^2.2.3
   collection: ^1.18.0
-  # In a real monorepo, you would use a path dependency.
-  # For this example, we assume nexus is published or a path dependency is set up.
+  
+  # --- FINAL FIX: Replacing SharedPreferences with Hive for robust persistence ---
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.3 # Required by Hive to find a storage path
+
 dependency_overrides:
   nexus:
     path: packages/nexus
@@ -28,3 +31,4 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+

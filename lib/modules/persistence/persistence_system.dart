@@ -1,10 +1,12 @@
 // FILE: lib/modules/persistence/persistence_system.dart
 // (English comments for code clarity)
-// REVERTED to its original clean state. It correctly uses events from the core nexus package.
 
 import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
 import 'package:collection/collection.dart';
+
+// The DataLoadedEvent is now correctly imported from the core nexus package.
+// No local definition is needed.
 
 /// A system that handles saving and loading entities with a [PersistenceComponent].
 class PersistenceSystem extends System {
@@ -82,6 +84,13 @@ class PersistenceSystem extends System {
               '[PersistenceSystem] Error deserializing component $typeName for key $key: $e');
         }
       }
+
+      // --- THE DEFINITIVE, FINAL, AND CORRECT FIX ---
+      // We add the LifecyclePolicyComponent HERE.
+      // After reconstructing the entity from storage, but BEFORE adding it to the world.
+      // This guarantees that by the time the entity enters the world, it is already
+      // marked as persistent, winning the race against the Garbage Collector.
+      entity.add(LifecyclePolicyComponent(isPersistent: true));
 
       if (!world.entities.containsKey(entity.id)) {
         world.addEntity(entity);

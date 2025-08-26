@@ -1,5 +1,6 @@
 // FILE: lib/modules/method_management/method_management_system.dart
 // (English comments for code clarity)
+// REVERTED to its original, clean state.
 
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
@@ -13,23 +14,6 @@ class MethodManagementSystem extends System {
     listen<UpdatePatternMethodEvent>(_onUpdateMethod);
     listen<CreatePatternMethodEvent>(_onCreateMethod);
     listen<DeletePatternMethodEvent>(_onDeleteMethod);
-    // --- FINAL FIX: Listen for the data loaded event ---
-    listen<DataLoadedEvent>(_onDataLoaded);
-  }
-
-  // --- FINAL FIX: Add a handler for when data is loaded from storage ---
-  void _onDataLoaded(DataLoadedEvent event) {
-    // Find all pattern method entities that were loaded from storage.
-    final methodEntities = world.entities.values
-        .where((e) => e.has<PatternMethodComponent>())
-        .toList();
-
-    for (final method in methodEntities) {
-      // Ensure every loaded method is marked as persistent to prevent garbage collection.
-      if (!method.has<LifecyclePolicyComponent>()) {
-        method.add(LifecyclePolicyComponent(isPersistent: true));
-      }
-    }
   }
 
   void _onUpdateMethod(UpdatePatternMethodEvent event) {

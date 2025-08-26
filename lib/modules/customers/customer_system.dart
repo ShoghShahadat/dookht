@@ -1,5 +1,6 @@
 // FILE: lib/modules/customers/customer_system.dart
 // (English comments for code clarity)
+// REVERTED to its original, clean state.
 
 import 'package:collection/collection.dart';
 import 'package:tailor_assistant/modules/calculations/components/calculation_result_component.dart';
@@ -19,34 +20,22 @@ class CustomerSystem extends System {
   }
 
   void _onDataLoaded(DataLoadedEvent event) {
-    // Find all entities that have been loaded and are tagged as 'customer'.
-    final customerEntities = world.entities.values
+    // This handler's only responsibility now is to populate the UI list.
+    final allCustomers = world.entities.values
         .where((e) => e.get<TagsComponent>()?.hasTag('customer') ?? false)
+        .map((e) => e.id)
         .toList();
 
-    final customerIds = <EntityId>[];
-    for (final customer in customerEntities) {
-      // --- FINAL FIX: This is the correct place to ensure persistence. ---
-      // If a loaded customer doesn't have a lifecycle policy, add one.
-      // This prevents the GarbageCollector from deleting them.
-      if (!customer.has<LifecyclePolicyComponent>()) {
-        customer.add(LifecyclePolicyComponent(isPersistent: true));
-      }
-      customerIds.add(customer.id);
-    }
-
-    // Update the UI container with the list of loaded (and now safe) customers.
     final listContainer = _getListContainer();
     if (listContainer != null) {
-      listContainer.add(ChildrenComponent(customerIds));
+      listContainer.add(ChildrenComponent(allCustomers));
     }
   }
 
   void _onAddCustomer(AddCustomerEvent event) {
     final newCustomer = Entity()
       ..add(TagsComponent({'customer'}))
-      ..add(LifecyclePolicyComponent(
-          isPersistent: true)) // Correctly set on creation
+      ..add(LifecyclePolicyComponent(isPersistent: true))
       ..add(CustomerComponent(
         firstName: event.firstName,
         lastName: event.lastName,
@@ -68,7 +57,6 @@ class CustomerSystem extends System {
       listContainer.add(ChildrenComponent(newChildren));
     }
 
-    // Fire the correct event to trigger immediate saving.
     world.eventBus.fire(SaveDataEvent());
   }
 
