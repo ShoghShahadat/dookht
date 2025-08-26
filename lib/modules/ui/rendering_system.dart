@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
+import 'package:tailor_assistant/modules/method_management/ui/edit_method_builder.dart';
 import 'package:tailor_assistant/modules/method_management/ui/method_management_builder.dart';
 
 import '../calculations/ui/calculation_page_builder.dart';
@@ -9,14 +10,15 @@ import 'theme_selector/theme_selector_builder.dart';
 import 'view_manager/view_manager_component.dart';
 
 /// The main rendering system for the application.
-/// It acts as a director, deciding which IWidgetBuilder to use based on the current view state.
 class AppRenderingSystem extends FlutterRenderingSystem {
   final Map<String, IWidgetBuilder> _widgetBuilders = {
     'theme_selector': ThemeSelectorBuilder(),
     'customer_list': CustomerListBuilder(),
     'add_customer_form': AddCustomerFormBuilder(),
     'calculation_page': CalculationPageBuilder(),
-    'method_management': MethodManagementBuilder(), // Register the new builder
+    'method_management': MethodManagementBuilder(),
+    'edit_method':
+        EditMethodBuilder(), // Register the new builder for the edit page
   };
 
   @override
@@ -73,12 +75,17 @@ class AppRenderingSystem extends FlutterRenderingSystem {
               return _widgetBuilders['calculation_page']!
                   .build(context, this, id);
             }
-          // Add the case for the new method management page.
           case AppView.methodManagement:
             final id = getAllIdsWithTag('method_management_page').firstOrNull;
             if (id != null) {
               return _widgetBuilders['method_management']!
                   .build(context, this, id);
+            }
+          // Add the case for the new edit method page.
+          case AppView.editMethod:
+            final id = getAllIdsWithTag('edit_method_page').firstOrNull;
+            if (id != null) {
+              return _widgetBuilders['edit_method']!.build(context, this, id);
             }
         }
         return const Center(child: CircularProgressIndicator());

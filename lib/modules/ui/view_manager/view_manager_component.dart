@@ -5,24 +5,28 @@ enum AppView {
   customerList,
   addCustomerForm,
   calculationPage,
-  methodManagement, // The new view for the method management screen
+  methodManagement,
+  editMethod, // The new view for editing a specific method
 }
 
 /// A serializable component that holds the current view state of the application.
 class ViewStateComponent extends Component with SerializableComponent {
   final AppView currentView;
-  // Store the ID of the customer whose calculation page is being viewed.
   final EntityId? activeCustomerId;
+  // Store the ID of the method being edited.
+  final EntityId? activeMethodId;
 
   ViewStateComponent({
     this.currentView = AppView.customerList,
     this.activeCustomerId,
+    this.activeMethodId,
   });
 
   factory ViewStateComponent.fromJson(Map<String, dynamic> json) {
     return ViewStateComponent(
       currentView: AppView.values[json['currentView'] as int],
       activeCustomerId: json['activeCustomerId'] as EntityId?,
+      activeMethodId: json['activeMethodId'] as EntityId?,
     );
   }
 
@@ -30,8 +34,9 @@ class ViewStateComponent extends Component with SerializableComponent {
   Map<String, dynamic> toJson() => {
         'currentView': currentView.index,
         'activeCustomerId': activeCustomerId,
+        'activeMethodId': activeMethodId,
       };
 
   @override
-  List<Object?> get props => [currentView, activeCustomerId];
+  List<Object?> get props => [currentView, activeCustomerId, activeMethodId];
 }

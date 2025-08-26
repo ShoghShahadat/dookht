@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/customers/customer_events.dart';
+import 'package:tailor_assistant/modules/method_management/method_management_events.dart';
 import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
 import '../../ui/rendering_system.dart';
 
@@ -50,16 +51,23 @@ class _MethodManagementWidget extends StatelessWidget {
         itemCount: allMethodIds.length,
         itemBuilder: (context, index) {
           final methodId = allMethodIds[index];
-          final method = renderingSystem.get<PatternMethodComponent>(methodId);
-          if (method == null) return const SizedBox.shrink();
-
-          return _buildMethodCard(method, textColor);
+          // Use AnimatedBuilder to listen for changes on the method entity itself
+          return AnimatedBuilder(
+            animation: renderingSystem.getNotifier(methodId),
+            builder: (context, _) {
+              final method =
+                  renderingSystem.get<PatternMethodComponent>(methodId);
+              if (method == null) return const SizedBox.shrink();
+              return _buildMethodCard(methodId, method, textColor);
+            },
+          );
         },
       ),
     );
   }
 
-  Widget _buildMethodCard(PatternMethodComponent method, Color textColor) {
+  Widget _buildMethodCard(
+      EntityId methodId, PatternMethodComponent method, Color textColor) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(15),
       child: BackdropFilter(
@@ -75,12 +83,26 @@ class _MethodManagementWidget extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                method.name,
-                style: TextStyle(
-                    color: textColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    method.name,
+                    style: TextStyle(
+                        color: textColor,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.edit_outlined,
+                        color: textColor.withOpacity(0.8)),
+                    onPressed: () {
+                      renderingSystem.manager
+                          ?.send(ShowEditMethodEvent(methodId));
+                    },
+                    tooltip: 'ویرایش متد',
+                  )
+                ],
               ),
               const Divider(color: Colors.white30, height: 20, thickness: 0.5),
               _buildDetailSection(

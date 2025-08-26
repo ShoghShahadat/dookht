@@ -1,10 +1,10 @@
 import 'package:collection/collection.dart';
 import 'package:nexus/nexus.dart';
+import 'package:tailor_assistant/modules/method_management/method_management_events.dart';
 import '../../customers/customer_events.dart';
 import 'view_manager_component.dart';
 
 /// A system that manages the current visible view of the application.
-/// It listens to navigation events and updates a central ViewStateComponent.
 class ViewManagerSystem extends System {
   @override
   void onAddedToWorld(NexusWorld world) {
@@ -14,20 +14,20 @@ class ViewManagerSystem extends System {
         (_) => _changeView(AppView.addCustomerForm));
     listen<ShowCalculationPageEvent>((event) =>
         _changeView(AppView.calculationPage, customerId: event.customerId));
-    // Listen for the event to show the method management page.
     listen<ShowMethodManagementEvent>(
         (_) => _changeView(AppView.methodManagement));
+    // Listen for the event to show the edit method page.
+    listen<ShowEditMethodEvent>(
+        (event) => _changeView(AppView.editMethod, methodId: event.methodId));
   }
 
-  void _changeView(AppView view, {EntityId? customerId}) {
+  void _changeView(AppView view, {EntityId? customerId, EntityId? methodId}) {
     final viewManager = _getViewManagerEntity();
     if (viewManager != null) {
-      // When navigating away from calculation page, clear the active customer id
-      final newCustomerId =
-          (view == AppView.calculationPage) ? customerId : null;
       viewManager.add(ViewStateComponent(
         currentView: view,
-        activeCustomerId: newCustomerId,
+        activeCustomerId: customerId,
+        activeMethodId: methodId,
       ));
     }
   }
