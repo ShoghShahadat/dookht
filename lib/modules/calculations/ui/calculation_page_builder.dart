@@ -44,27 +44,29 @@ class _CalculationPageWidget extends StatefulWidget {
 class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
   final Map<String, TextEditingController> _measurementControllers = {};
   final Map<String, TextEditingController> _variableControllers = {};
+  EntityId? _currentMethodId;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Re-initialize controllers when dependencies change, which can happen
-    // when the underlying data from the rendering system is updated.
-    _initializeControllers();
+  void initState() {
+    super.initState();
+    _initializeAllControllers();
   }
 
-  void _initializeControllers() {
+  @override
+  void didUpdateWidget(covariant _CalculationPageWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.customerId != oldWidget.customerId) {
+      _initializeAllControllers();
+    }
+  }
+
+  void _initializeAllControllers() {
     final rs = widget.renderingSystem;
     final measurements = rs.get<MeasurementComponent>(widget.customerId);
-    final calcState = rs.get<CalculationStateComponent>(widget.customerId);
 
-    // Clear old controllers to prevent memory leaks
-    _measurementControllers.values.forEach((c) => c.dispose());
+    _measurementControllers.forEach((_, controller) => controller.dispose());
     _measurementControllers.clear();
-    _variableControllers.values.forEach((c) => c.dispose());
-    _variableControllers.clear();
 
-    // Initialize measurement controllers
     _initMeasurementController(
         'bustCircumference', measurements?.bustCircumference);
     _initMeasurementController(
@@ -79,10 +81,27 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
     _initMeasurementController(
         'wristCircumference', measurements?.wristCircumference);
 
-    // Initialize variable controllers based on the selected method
+    _syncVariableControllers();
+  }
+
+  void _syncVariableControllers() {
+    final rs = widget.renderingSystem;
+    final calcState = rs.get<CalculationStateComponent>(widget.customerId);
     final methodId = calcState?.selectedMethodId ??
         rs.getAllIdsWithTag('pattern_method').firstOrNull;
-    if (methodId == null) return;
+
+    if (methodId == null) {
+      _variableControllers.forEach((_, controller) => controller.dispose());
+      _variableControllers.clear();
+      return;
+    }
+
+    // Only rebuild controllers if the method has actually changed.
+    if (_currentMethodId == methodId) return;
+    _currentMethodId = methodId;
+
+    _variableControllers.forEach((_, controller) => controller.dispose());
+    _variableControllers.clear();
 
     final method = rs.get<PatternMethodComponent>(methodId);
     if (method == null) return;
@@ -142,8 +161,8 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
         child: AnimatedBuilder(
           animation: rs.getNotifier(widget.customerId),
           builder: (context, _) {
-            // Re-initialize variable controllers if the method changes
-            _initializeControllers();
+            // **FIX**: Sync controllers smartly instead of re-initializing everything.
+            _syncVariableControllers();
             return Column(
               children: [
                 _buildMethodSelector(textColor),
@@ -239,16 +258,16 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
     final calcState = rs.get<CalculationStateComponent>(widget.customerId);
     EntityId? selectedMethodId = calcState?.selectedMethodId;
 
-    // If no method is selected yet, or if the selected method was deleted, default to the first one.
     if (selectedMethodId == null || !allMethodIds.contains(selectedMethodId)) {
       selectedMethodId = allMethodIds.firstOrNull;
-      // Post a frame to update the state with the default method
       if (selectedMethodId != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          rs.manager?.send(SelectPatternMethodEvent(
-            customerId: widget.customerId,
-            methodId: selectedMethodId!,
-          ));
+          if (mounted) {
+            rs.manager?.send(SelectPatternMethodEvent(
+              customerId: widget.customerId,
+              methodId: selectedMethodId!,
+            ));
+          }
         });
       }
     }
@@ -303,10 +322,7 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
 
     final tiles = method.formulas.map((formula) {
       final value = results.toJson()[formula.resultKey];
-      if (value != null) {
-        return _resultTile(formula.label, value as double?, textColor);
-      }
-      return const SizedBox.shrink();
+      return _resultTile(formula.label, value as double?, textColor);
     }).toList();
 
     return tiles.isNotEmpty
@@ -320,7 +336,7 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
   Widget _resultTile(String title, double? value, Color textColor) {
     return ListTile(
       title: Text(title, style: TextStyle(color: textColor.withOpacity(0.8))),
-      trailing: Text('${value?.toStringAsFixed(2) ?? '-'} cm',
+      trailing: Text(value != null ? '${value.toStringAsFixed(2)} cm' : '- cm',
           style: TextStyle(
               color: textColor, fontWeight: FontWeight.bold, fontSize: 16)),
     );

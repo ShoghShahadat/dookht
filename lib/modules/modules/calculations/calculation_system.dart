@@ -18,6 +18,34 @@ class CalculationSystem extends System {
     listen<UpdateCalculationVariableEvent>(_onUpdateVariable);
   }
 
+  // **FIX**: A recursive function to correctly extract all identifiers from an expression tree.
+  Set<String> _getIdentifiers(Expression expression) {
+    final identifiers = <String>{};
+    if (expression is Variable) {
+      identifiers.add(expression.identifier.name);
+    } else if (expression is MemberExpression) {
+      identifiers.addAll(_getIdentifiers(expression.object));
+    } else if (expression is IndexExpression) {
+      identifiers.addAll(_getIdentifiers(expression.object));
+      identifiers.addAll(_getIdentifiers(expression.index));
+    } else if (expression is CallExpression) {
+      identifiers.addAll(_getIdentifiers(expression.callee));
+      for (var arg in expression.arguments) {
+        identifiers.addAll(_getIdentifiers(arg));
+      }
+    } else if (expression is UnaryExpression) {
+      identifiers.addAll(_getIdentifiers(expression.argument));
+    } else if (expression is BinaryExpression) {
+      identifiers.addAll(_getIdentifiers(expression.left));
+      identifiers.addAll(_getIdentifiers(expression.right));
+    } else if (expression is ConditionalExpression) {
+      identifiers.addAll(_getIdentifiers(expression.test));
+      identifiers.addAll(_getIdentifiers(expression.consequent));
+      identifiers.addAll(_getIdentifiers(expression.alternate));
+    }
+    return identifiers;
+  }
+
   void _onUpdateVariable(UpdateCalculationVariableEvent event) {
     final customer = world.entities[event.customerId];
     if (customer == null) return;
@@ -49,8 +77,7 @@ class CalculationSystem extends System {
 
     customer.add(CalculationStateComponent(
       selectedMethodId: event.methodId,
-      variableValues:
-          currentState.variableValues, // Preserve existing variables
+      variableValues: currentState.variableValues,
     ));
   }
 
@@ -76,18 +103,16 @@ class CalculationSystem extends System {
     final calcState = customer.get<CalculationStateComponent>();
     if (measurements == null || calcState == null) return;
 
-    // Find the selected method, or default to the first available one.
-    EntityId? methodId = calcState.selectedMethodId;
-    methodId ??= world.entities.values
-        .firstWhereOrNull((e) => e.has<PatternMethodComponent>())
-        ?.id;
+    EntityId? methodId = calcState.selectedMethodId ??
+        world.entities.values
+            .firstWhereOrNull((e) => e.has<PatternMethodComponent>())
+            ?.id;
 
     if (methodId == null) {
       print("Calculation Error: No pattern methods found.");
       return;
     }
 
-    // Update the state to ensure the default method ID is saved.
     if (calcState.selectedMethodId == null) {
       customer.add(CalculationStateComponent(
           selectedMethodId: methodId,
@@ -96,19 +121,12 @@ class CalculationSystem extends System {
 
     final methodEntity = world.entities[methodId];
     final method = methodEntity?.get<PatternMethodComponent>();
-    if (method == null) {
-      print(
-          "Calculation Error: Selected pattern method (ID: $methodId) not found.");
-      return;
-    }
+    if (method == null) return;
 
-    // --- Dynamic Calculation Logic ---
     final expressionContext = <String, dynamic>{};
-    // 1. Add all raw measurements to the context.
     expressionContext.addAll(
         measurements.toJson()..removeWhere((key, value) => value == null));
 
-    // 2. Add all dynamic variables to the context, using defaults if not provided.
     for (var variable in method.variables) {
       expressionContext[variable.key] =
           calcState.variableValues[variable.key] ?? variable.defaultValue;
@@ -117,15 +135,23 @@ class CalculationSystem extends System {
     final results = <String, double?>{};
     final evaluator = const ExpressionEvaluator();
 
-    // 3. Evaluate each formula.
     for (final formula in method.formulas) {
       try {
         final expression = Expression.parse(formula.expression);
-        final result = evaluator.eval(expression, expressionContext);
-        if (result is num) {
-          results[formula.resultKey] = result.toDouble();
-          // Add the result to the context so it can be used in subsequent formulas.
-          expressionContext[formula.resultKey] = result.toDouble();
+
+        final requiredVars = _getIdentifiers(expression);
+
+        final canEvaluate =
+            requiredVars.every((v) => expressionContext[v] != null);
+
+        if (canEvaluate) {
+          final result = evaluator.eval(expression, expressionContext);
+          if (result is num) {
+            results[formula.resultKey] = result.toDouble();
+            expressionContext[formula.resultKey] = result.toDouble();
+          }
+        } else {
+          results[formula.resultKey] = null;
         }
       } catch (e) {
         print("Error evaluating formula for '${formula.resultKey}': $e");
@@ -133,12 +159,11 @@ class CalculationSystem extends System {
       }
     }
 
-    // 4. Create the result component and add it to the customer entity.
     customer.add(CalculationResultComponent.fromJson(results));
   }
 
   @override
-  bool matches(Entity entity) => false; // Purely event-driven
+  bool matches(Entity entity) => false;
 
   @override
   void update(Entity entity, double dt) {}

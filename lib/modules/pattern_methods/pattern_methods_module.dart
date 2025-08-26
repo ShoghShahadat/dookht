@@ -6,7 +6,7 @@ class PatternMethodsModule extends NexusModule {
   @override
   void onLoad(NexusWorld world) {
     // Create the default "Personal Method" entity.
-    // In the future, other methods (like Muller, etc.) can be loaded here from a database or file.
+    // Formulas are now written in a valid expression syntax without curly braces.
     final personalMethod = Entity()
       ..add(TagsComponent({'pattern_method'}))
       ..add(LifecyclePolicyComponent(isPersistent: true))
@@ -19,34 +19,36 @@ class PatternMethodsModule extends NexusModule {
         formulas: [
           Formula(
               resultKey: 'bodiceBustWidth',
-              expression: '({bustCircumference} / 4) + {ease}',
+              expression: '(bustCircumference / 4) + ease',
               label: 'عرض کادر سینه'),
           Formula(
               resultKey: 'bodiceWaistWidth',
-              expression: '({waistCircumference} / 4)',
+              expression: 'waistCircumference / 4',
               label: 'عرض کادر کمر'),
           Formula(
               resultKey: 'bodiceHipWidth',
-              expression: '({hipCircumference} / 4) + 2.0',
+              expression: '(hipCircumference / 4) + 2.0',
               label: 'عرض کادر باسن'),
           Formula(
               resultKey: 'frontInterscyeWidth',
-              expression: '({frontInterscye} / 2) + 1.0',
+              expression: '(frontInterscye / 2) + 1.0',
               label: 'پهنای کارور جلو'),
           Formula(
               resultKey: 'backInterscyeWidth',
-              expression: '({backInterscye} / 2) - 1.0',
+              expression: '(backInterscye / 2) - 1.0',
               label: 'پهنای کارور پشت'),
           Formula(
               resultKey: 'sleeveWidth',
-              expression: '({armCircumference} / 2) + 2.0',
+              expression: '(armCircumference / 2) + 2.0',
               label: 'گشادی کف حلقه آستین'),
           Formula(
               resultKey: 'sleeveCuffWidth',
-              expression: '({wristCircumference} / 2)',
+              expression: 'wristCircumference / 2',
               label: 'عرض مچ آستین'),
         ],
-      ));
+      ))
+      ..add(
+          PersistenceComponent('method_personal_default')); // Added persistence
 
     world.addEntity(personalMethod);
   }
