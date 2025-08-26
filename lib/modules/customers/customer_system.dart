@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:nexus/nexus.dart';
+import '../persistence/persistence_events.dart' hide SaveDataEvent;
 import 'components/customer_component.dart';
 import 'customer_events.dart';
 
@@ -8,12 +9,26 @@ class CustomerSystem extends System {
   @override
   void onAddedToWorld(NexusWorld world) {
     super.onAddedToWorld(world);
-    // Listen for the event that is fired when the user submits the 'add customer' form.
     listen<AddCustomerEvent>(_onAddCustomer);
+    // Listen for the data loaded event to populate the initial list.
+    listen<DataLoadedEvent>(_onDataLoaded);
   }
 
+  /// Populates the customer list after data is loaded from storage.
+  void _onDataLoaded(DataLoadedEvent event) {
+    final allCustomers = world.entities.values
+        .where((e) => e.get<TagsComponent>()?.hasTag('customer') ?? false)
+        .map((e) => e.id)
+        .toList();
+
+    final listContainer = _getListContainer();
+    if (listContainer != null) {
+      listContainer.add(ChildrenComponent(allCustomers));
+    }
+  }
+
+  /// Handles the creation of a new customer from the form.
   void _onAddCustomer(AddCustomerEvent event) {
-    // 1. Create a new entity for the customer.
     final newCustomer = Entity()
       ..add(TagsComponent({'customer'}))
       ..add(LifecyclePolicyComponent(isPersistent: true))
@@ -22,28 +37,25 @@ class CustomerSystem extends System {
         lastName: event.lastName,
         phone: event.phone,
       ))
-      // Add a PersistenceComponent to mark this entity for saving.
-      // The storage key is unique to this customer.
       ..add(PersistenceComponent(
           'customer_${DateTime.now().millisecondsSinceEpoch}'));
 
     world.addEntity(newCustomer);
 
-    // 2. Find the central list container entity.
-    final listContainer = world.entities.values.firstWhereOrNull((e) =>
-        e.get<TagsComponent>()?.hasTag('customer_list_container') ?? false);
-
+    final listContainer = _getListContainer();
     if (listContainer != null) {
-      // 3. Update the list container's children to include the new customer.
       final childrenComp = listContainer.get<ChildrenComponent>()!;
       final newChildren = List<EntityId>.from(childrenComp.children)
         ..add(newCustomer.id);
       listContainer.add(ChildrenComponent(newChildren));
     }
 
-    // 4. Fire an event to notify other systems (like the PersistenceSystem)
-    // that they should save all persistent data now.
     world.eventBus.fire(SaveDataEvent());
+  }
+
+  Entity? _getListContainer() {
+    return world.entities.values.firstWhereOrNull((e) =>
+        e.get<TagsComponent>()?.hasTag('customer_list_container') ?? false);
   }
 
   @override

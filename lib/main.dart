@@ -5,6 +5,9 @@ import 'package:get_it/get_it.dart';
 import 'package:nexus/nexus.dart' hide ThemeProviderService;
 import 'package:shared_preferences/shared_preferences.dart';
 
+// Import the new custom component registry.
+import 'core/component_registry.dart';
+
 // Import local modules and systems
 import 'modules/customers/add_customer_form_module.dart';
 import 'modules/customers/customer_list_module.dart';
@@ -22,7 +25,11 @@ final GetIt services = GetIt.instance;
 
 /// This function is the entry point for the background isolate.
 Future<void> _isolateInitializer() async {
+  // 1. Register framework components.
   registerCoreComponents();
+  // 2. Register our app-specific components.
+  registerCustomComponents();
+
   final prefs = await SharedPreferences.getInstance();
   services.registerSingleton<StorageAdapter>(SharedPrefsStorageAdapter(prefs));
   services.registerSingleton(ThemeProviderService());
@@ -31,9 +38,15 @@ Future<void> _isolateInitializer() async {
 /// The main entry point for the application.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 1. Register framework components for the UI isolate.
   registerCoreComponents();
+  // 2. Register our app-specific components for the UI isolate.
+  registerCustomComponents();
+
   final prefs = await SharedPreferences.getInstance();
   services.registerSingleton<StorageAdapter>(SharedPrefsStorageAdapter(prefs));
+
   final rootIsolateToken = RootIsolateToken.instance;
   if (rootIsolateToken == null) {
     debugPrint("FATAL: Could not get RootIsolateToken.");
@@ -58,7 +71,7 @@ class TailorAssistantApp extends StatelessWidget {
         worldProvider: () {
           final world = NexusWorld();
           // Load all modules for the application.
-          world.loadModule(PersistenceModule()); // Handles saving/loading
+          world.loadModule(PersistenceModule());
           world.loadModule(ThemingModule());
           world.loadModule(MainScreenModule());
           world.loadModule(ThemeSelectorModule());
