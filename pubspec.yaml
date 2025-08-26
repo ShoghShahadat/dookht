@@ -1,0 +1,27 @@
+name: nexus_layout_kit
+description: A highly modular application shell built with the Nexus (ECS) framework, demonstrating parallel development capabilities.
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # In a real monorepo, you would use a path dependency.
+  # For this example, we assume nexus is published or a path dependency is set up.
+dependency_overrides:
+  nexus:
+    path: packages/nexus
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

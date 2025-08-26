@@ -1,0 +1,10 @@
+# This file is necessary to configure the Dart analyzer.
+# We can add rules here to enforce code style or enable experimental features.
+# For now, a default linter setup is sufficient.
+
+include: package:lints/recommended.yaml
+
+linter:
+  rules:
+    # You can customize linter rules here if needed.
+    # e.g., avoid_print: false
