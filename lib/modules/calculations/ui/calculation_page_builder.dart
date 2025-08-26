@@ -1,6 +1,9 @@
 import 'dart:ui';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
+import 'package:tailor_assistant/modules/calculations/components/calculation_state_component.dart';
+import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
 import '../../customers/components/customer_component.dart';
 import '../../customers/components/measurement_component.dart';
 import '../../customers/customer_events.dart';
@@ -39,35 +42,64 @@ class _CalculationPageWidget extends StatefulWidget {
 }
 
 class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
-  final Map<String, TextEditingController> _controllers = {};
+  final Map<String, TextEditingController> _measurementControllers = {};
+  final Map<String, TextEditingController> _variableControllers = {};
 
   @override
   void initState() {
     super.initState();
+    _initializeControllers();
+  }
+
+  void _initializeControllers() {
     final rs = widget.renderingSystem;
     final measurements = rs.get<MeasurementComponent>(widget.customerId);
 
-    _initializeController('bustCircumference', measurements?.bustCircumference);
-    _initializeController(
+    // Initialize measurement controllers
+    _initMeasurementController(
+        'bustCircumference', measurements?.bustCircumference);
+    _initMeasurementController(
         'waistCircumference', measurements?.waistCircumference);
-    _initializeController('hipCircumference', measurements?.hipCircumference);
-    _initializeController('frontInterscye', measurements?.frontInterscye);
-    _initializeController('backInterscye', measurements?.backInterscye);
-    _initializeController('sleeveLength', measurements?.sleeveLength);
-    _initializeController('armCircumference', measurements?.armCircumference);
-    _initializeController(
+    _initMeasurementController(
+        'hipCircumference', measurements?.hipCircumference);
+    _initMeasurementController('frontInterscye', measurements?.frontInterscye);
+    _initMeasurementController('backInterscye', measurements?.backInterscye);
+    _initMeasurementController('sleeveLength', measurements?.sleeveLength);
+    _initMeasurementController(
+        'armCircumference', measurements?.armCircumference);
+    _initMeasurementController(
         'wristCircumference', measurements?.wristCircumference);
+
+    // Initialize variable controllers based on the selected method
+    _initVariableControllers();
   }
 
-  void _initializeController(String key, double? value) {
-    _controllers[key] = TextEditingController(text: value?.toString() ?? '');
+  void _initVariableControllers() {
+    final rs = widget.renderingSystem;
+    final calcState = rs.get<CalculationStateComponent>(widget.customerId);
+    final methodId = calcState?.selectedMethodId;
+    if (methodId == null) return;
+
+    final method = rs.get<PatternMethodComponent>(methodId);
+    if (method == null) return;
+
+    for (var variable in method.variables) {
+      final value =
+          calcState?.variableValues[variable.key] ?? variable.defaultValue;
+      _variableControllers[variable.key] =
+          TextEditingController(text: value.toString());
+    }
+  }
+
+  void _initMeasurementController(String key, double? value) {
+    _measurementControllers[key] =
+        TextEditingController(text: value?.toString() ?? '');
   }
 
   @override
   void dispose() {
-    for (var controller in _controllers.values) {
-      controller.dispose();
-    }
+    _measurementControllers.values.forEach((c) => c.dispose());
+    _variableControllers.values.forEach((c) => c.dispose());
     super.dispose();
   }
 
@@ -103,76 +135,157 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 80),
-        child: Column(
-          children: [
-            _buildSection('اندازه‌ها', textColor, [
-              _buildTextField('bustCircumference', 'دور سینه', textColor),
-              _buildTextField('waistCircumference', 'دور کمر', textColor),
-              _buildTextField('hipCircumference', 'دور باسن', textColor),
-              _buildTextField('frontInterscye', 'کارور جلو', textColor),
-              _buildTextField('backInterscye', 'کارور پشت', textColor),
-              _buildTextField('sleeveLength', 'قد آستین', textColor),
-              _buildTextField('armCircumference', 'دور بازو', textColor),
-              _buildTextField('wristCircumference', 'دور مچ', textColor),
-            ]),
-            const SizedBox(height: 30),
-            ElevatedButton.icon(
-              onPressed: () =>
-                  rs.manager?.send(PerformCalculationEvent(widget.customerId)),
-              icon: const Icon(Icons.calculate_outlined),
-              label: const Text('محاسبه کن'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30)),
-              ),
-            ),
-            const SizedBox(height: 30),
-            // The results section now listens for changes on the customer entity.
-            AnimatedBuilder(
-                animation: rs.getNotifier(widget.customerId),
-                builder: (context, _) {
-                  final results =
-                      rs.get<CalculationResultComponent>(widget.customerId);
-                  return _buildSection('نتایج الگو', textColor,
-                      _buildResultTiles(results, textColor));
-                }),
-          ],
+        child: AnimatedBuilder(
+          animation: rs.getNotifier(widget.customerId),
+          builder: (context, _) {
+            // Re-initialize variable controllers if the method changes
+            _initVariableControllers();
+            return Column(
+              children: [
+                _buildMethodSelector(textColor),
+                const SizedBox(height: 20),
+                _buildSection(
+                    'متغیرها', textColor, _buildVariableFields(textColor)),
+                const SizedBox(height: 20),
+                _buildSection('اندازه‌ها', textColor, [
+                  _buildTextField(_measurementControllers, 'bustCircumference',
+                      'دور سینه', textColor),
+                  _buildTextField(_measurementControllers, 'waistCircumference',
+                      'دور کمر', textColor),
+                  _buildTextField(_measurementControllers, 'hipCircumference',
+                      'دور باسن', textColor),
+                  _buildTextField(_measurementControllers, 'frontInterscye',
+                      'کارور جلو', textColor),
+                  _buildTextField(_measurementControllers, 'backInterscye',
+                      'کارور پشت', textColor),
+                  _buildTextField(_measurementControllers, 'sleeveLength',
+                      'قد آستین', textColor),
+                  _buildTextField(_measurementControllers, 'armCircumference',
+                      'دور بازو', textColor),
+                  _buildTextField(_measurementControllers, 'wristCircumference',
+                      'دور مچ', textColor),
+                ]),
+                const SizedBox(height: 30),
+                ElevatedButton.icon(
+                  onPressed: () => rs.manager
+                      ?.send(PerformCalculationEvent(widget.customerId)),
+                  icon: const Icon(Icons.calculate_outlined),
+                  label: const Text('محاسبه کن'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 40, vertical: 15),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30)),
+                  ),
+                ),
+                const SizedBox(height: 30),
+                _buildResultsSection(textColor),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  List<Widget> _buildResultTiles(
-      CalculationResultComponent? results, Color textColor) {
-    if (results == null)
+  Widget _buildResultsSection(Color textColor) {
+    final rs = widget.renderingSystem;
+    final results = rs.get<CalculationResultComponent>(widget.customerId);
+    final calcState = rs.get<CalculationStateComponent>(widget.customerId);
+    final method = (calcState?.selectedMethodId != null)
+        ? rs.get<PatternMethodComponent>(calcState!.selectedMethodId!)
+        : null;
+
+    return _buildSection(
+        'نتایج الگو', textColor, _buildResultTiles(results, method, textColor));
+  }
+
+  List<Widget> _buildVariableFields(Color textColor) {
+    final rs = widget.renderingSystem;
+    final calcState = rs.get<CalculationStateComponent>(widget.customerId);
+    final methodId = calcState?.selectedMethodId ??
+        rs.getAllIdsWithTag('pattern_method').firstOrNull;
+    if (methodId == null) return [const SizedBox.shrink()];
+
+    final method = rs.get<PatternMethodComponent>(methodId);
+    if (method == null || method.variables.isEmpty) {
+      return [
+        Text('این متد متغیر ورودی ندارد.',
+            style: TextStyle(color: textColor.withOpacity(0.7)))
+      ];
+    }
+
+    return method.variables.map((variable) {
+      return _buildTextField(
+        _variableControllers,
+        variable.key,
+        variable.label,
+        textColor,
+        isVariable: true,
+      );
+    }).toList();
+  }
+
+  Widget _buildMethodSelector(Color textColor) {
+    final rs = widget.renderingSystem;
+    final allMethodIds = rs.getAllIdsWithTag('pattern_method');
+    final calcState = rs.get<CalculationStateComponent>(widget.customerId);
+    final selectedMethodId =
+        calcState?.selectedMethodId ?? allMethodIds.firstOrNull;
+
+    final items = allMethodIds.map((id) {
+      final method = rs.get<PatternMethodComponent>(id);
+      return DropdownMenuItem<EntityId>(
+        value: id,
+        child: Text(method?.name ?? 'متد ناشناس',
+            style: const TextStyle(color: Colors.black)),
+      );
+    }).toList();
+
+    return _buildSection('انتخاب متد', textColor, [
+      if (items.isNotEmpty)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<EntityId>(
+              value: selectedMethodId,
+              isExpanded: true,
+              dropdownColor: Colors.white,
+              items: items,
+              onChanged: (newId) {
+                if (newId != null) {
+                  rs.manager?.send(SelectPatternMethodEvent(
+                    customerId: widget.customerId,
+                    methodId: newId,
+                  ));
+                }
+              },
+            ),
+          ),
+        )
+      else
+        Text('هیچ متدی یافت نشد.', style: TextStyle(color: textColor)),
+    ]);
+  }
+
+  List<Widget> _buildResultTiles(CalculationResultComponent? results,
+      PatternMethodComponent? method, Color textColor) {
+    if (results == null || method == null)
       return [const Text('...', style: TextStyle(color: Colors.white70))];
 
-    final tiles = <Widget>[];
-    if (results.bodiceBustWidth != null)
-      tiles.add(
-          _resultTile('عرض کادر سینه', results.bodiceBustWidth, textColor));
-    if (results.bodiceWaistWidth != null)
-      tiles.add(
-          _resultTile('عرض کادر کمر', results.bodiceWaistWidth, textColor));
-    if (results.bodiceHipWidth != null)
-      tiles
-          .add(_resultTile('عرض کادر باسن', results.bodiceHipWidth, textColor));
-    if (results.frontInterscyeWidth != null)
-      tiles.add(_resultTile(
-          'پهنای کارور جلو', results.frontInterscyeWidth, textColor));
-    if (results.backInterscyeWidth != null)
-      tiles.add(_resultTile(
-          'پهنای کارور پشت', results.backInterscyeWidth, textColor));
-    if (results.sleeveWidth != null)
-      tiles.add(
-          _resultTile('گشادی کف حلقه آستین', results.sleeveWidth, textColor));
-    if (results.sleeveCuffWidth != null)
-      tiles
-          .add(_resultTile('عرض مچ آستین', results.sleeveCuffWidth, textColor));
+    final tiles = method.formulas.map((formula) {
+      final value = results.toJson()[formula.resultKey];
+      if (value != null) {
+        return _resultTile(formula.label, value as double?, textColor);
+      }
+      return const SizedBox.shrink();
+    }).toList();
 
     return tiles.isNotEmpty
         ? tiles
@@ -220,24 +333,35 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
     );
   }
 
-  Widget _buildTextField(String key, String label, Color textColor) {
+  Widget _buildTextField(Map<String, TextEditingController> controllers,
+      String key, String label, Color textColor,
+      {bool isVariable = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: TextFormField(
-        controller: _controllers[key],
+        controller: controllers[key],
         onChanged: (value) {
-          widget.renderingSystem.manager?.send(UpdateMeasurementEvent(
-            customerId: widget.customerId,
-            fieldKey: key,
-            value: double.tryParse(value),
-          ));
+          final parsedValue = double.tryParse(value);
+          if (isVariable) {
+            widget.renderingSystem.manager?.send(UpdateCalculationVariableEvent(
+              customerId: widget.customerId,
+              variableKey: key,
+              value: parsedValue,
+            ));
+          } else {
+            widget.renderingSystem.manager?.send(UpdateMeasurementEvent(
+              customerId: widget.customerId,
+              fieldKey: key,
+              value: parsedValue,
+            ));
+          }
         },
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         style: TextStyle(color: textColor),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: TextStyle(color: textColor.withOpacity(0.7)),
-          suffixText: 'cm',
+          suffixText: isVariable ? '' : 'cm',
           suffixStyle: TextStyle(color: textColor.withOpacity(0.5)),
           enabledBorder: UnderlineInputBorder(
               borderSide: BorderSide(color: textColor.withOpacity(0.3))),

@@ -11,6 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   get_it: ^7.7.0
+  expressions: ^0.2.5+2
   shared_preferences: ^2.2.3
   collection: ^1.18.0
   # In a real monorepo, you would use a path dependency.

@@ -1,8 +1,11 @@
 import 'package:collection/collection.dart';
-import 'package:nexus/nexus.dart';
-import '../persistence/persistence_events.dart' hide SaveDataEvent;
-import 'components/customer_component.dart';
-import 'customer_events.dart';
+import 'package:tailor_assistant/modules/calculations/components/calculation_result_component.dart';
+import 'package:tailor_assistant/modules/calculations/components/calculation_state_component.dart';
+import 'package:tailor_assistant/modules/customers/components/customer_component.dart';
+import 'package:tailor_assistant/modules/customers/components/measurement_component.dart';
+import 'package:tailor_assistant/modules/customers/customer_events.dart';
+import 'package:tailor_assistant/modules/persistence/persistence_events.dart';
+import 'package:nexus/nexus.dart' hide SaveDataEvent;
 
 /// The core logic system for managing customer data.
 class CustomerSystem extends System {
@@ -10,11 +13,9 @@ class CustomerSystem extends System {
   void onAddedToWorld(NexusWorld world) {
     super.onAddedToWorld(world);
     listen<AddCustomerEvent>(_onAddCustomer);
-    // Listen for the data loaded event to populate the initial list.
     listen<DataLoadedEvent>(_onDataLoaded);
   }
 
-  /// Populates the customer list after data is loaded from storage.
   void _onDataLoaded(DataLoadedEvent event) {
     final allCustomers = world.entities.values
         .where((e) => e.get<TagsComponent>()?.hasTag('customer') ?? false)
@@ -27,7 +28,6 @@ class CustomerSystem extends System {
     }
   }
 
-  /// Handles the creation of a new customer from the form.
   void _onAddCustomer(AddCustomerEvent event) {
     final newCustomer = Entity()
       ..add(TagsComponent({'customer'}))
@@ -37,6 +37,11 @@ class CustomerSystem extends System {
         lastName: event.lastName,
         phone: event.phone,
       ))
+      // Add empty components to initialize the customer's state.
+      ..add(MeasurementComponent())
+      ..add(CalculationResultComponent())
+      // Add the new calculation state component.
+      ..add(CalculationStateComponent())
       ..add(PersistenceComponent(
           'customer_${DateTime.now().millisecondsSinceEpoch}'));
 
@@ -59,7 +64,7 @@ class CustomerSystem extends System {
   }
 
   @override
-  bool matches(Entity entity) => false; // Purely event-driven.
+  bool matches(Entity entity) => false;
 
   @override
   void update(Entity entity, double dt) {}

@@ -1,18 +1,59 @@
+import 'package:collection/collection.dart';
 import 'package:tailor_assistant/modules/calculations/calculation_events.dart';
 import 'package:tailor_assistant/modules/calculations/components/calculation_result_component.dart';
+import 'package:tailor_assistant/modules/calculations/components/calculation_state_component.dart';
 import 'package:tailor_assistant/modules/customers/components/measurement_component.dart';
 import 'package:nexus/nexus.dart';
+import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
+import 'package:expressions/expressions.dart';
 
-/// The core logic system that performs all pattern calculations.
+/// The core logic system that performs all pattern calculations dynamically.
 class CalculationSystem extends System {
   @override
   void onAddedToWorld(NexusWorld world) {
     super.onAddedToWorld(world);
     listen<UpdateMeasurementEvent>(_onUpdateMeasurement);
     listen<PerformCalculationEvent>(_onPerformCalculation);
+    listen<SelectPatternMethodEvent>(_onSelectPatternMethod);
+    listen<UpdateCalculationVariableEvent>(_onUpdateVariable);
   }
 
-  /// Updates and saves a single measurement field for a customer.
+  void _onUpdateVariable(UpdateCalculationVariableEvent event) {
+    final customer = world.entities[event.customerId];
+    if (customer == null) return;
+
+    final currentState = customer.get<CalculationStateComponent>() ??
+        CalculationStateComponent();
+    final newVariables = Map<String, double>.from(currentState.variableValues);
+
+    if (event.value != null) {
+      newVariables[event.variableKey] = event.value!;
+    } else {
+      newVariables.remove(event.variableKey);
+    }
+
+    customer.add(CalculationStateComponent(
+      selectedMethodId: currentState.selectedMethodId,
+      variableValues: newVariables,
+    ));
+
+    world.eventBus.fire(SaveDataEvent());
+  }
+
+  void _onSelectPatternMethod(SelectPatternMethodEvent event) {
+    final customer = world.entities[event.customerId];
+    if (customer == null) return;
+
+    final currentState = customer.get<CalculationStateComponent>() ??
+        CalculationStateComponent();
+
+    customer.add(CalculationStateComponent(
+      selectedMethodId: event.methodId,
+      variableValues:
+          currentState.variableValues, // Preserve existing variables
+    ));
+  }
+
   void _onUpdateMeasurement(UpdateMeasurementEvent event) {
     final customer = world.entities[event.customerId];
     if (customer == null) return;
@@ -20,75 +61,80 @@ class CalculationSystem extends System {
     final currentMeasurements =
         customer.get<MeasurementComponent>() ?? MeasurementComponent();
 
-    // Create a new map with the updated value.
     final newJson = Map<String, dynamic>.from(currentMeasurements.toJson());
     newJson[event.fieldKey] = event.value;
 
-    // Create a new component instance with the updated data.
     customer.add(MeasurementComponent.fromJson(newJson));
-
-    // Auto-save after every change.
     world.eventBus.fire(SaveDataEvent());
   }
 
-  /// Performs all calculations based on the customer's current measurements.
   void _onPerformCalculation(PerformCalculationEvent event) {
     final customer = world.entities[event.customerId];
-    final measurements = customer?.get<MeasurementComponent>();
-    if (customer == null || measurements == null) return;
+    if (customer == null) return;
 
-    // --- Your Calculation Logic Translated to Code ---
+    final measurements = customer.get<MeasurementComponent>();
+    final calcState = customer.get<CalculationStateComponent>();
+    if (measurements == null || calcState == null) return;
 
-    // Bust: 1/4 measurement + ease (conditional)
-    double? bodiceBustWidth;
-    if (measurements.bustCircumference != null) {
-      final bust = measurements.bustCircumference!;
-      final ease = bust < 104 ? 1.0 : 2.0; // Your smart rule!
-      bodiceBustWidth = (bust / 4) + ease;
+    // Find the selected method, or default to the first available one.
+    EntityId? methodId = calcState.selectedMethodId;
+    methodId ??= world.entities.values
+        .firstWhereOrNull((e) => e.has<PatternMethodComponent>())
+        ?.id;
+
+    if (methodId == null) {
+      print("Calculation Error: No pattern methods found.");
+      return;
     }
 
-    // Waist: 1/4 measurement (darts are handled in pattern drafting)
-    double? bodiceWaistWidth = measurements.waistCircumference != null
-        ? (measurements.waistCircumference! / 4)
-        : null;
+    // Update the state to ensure the default method ID is saved.
+    if (calcState.selectedMethodId == null) {
+      customer.add(CalculationStateComponent(
+          selectedMethodId: methodId,
+          variableValues: calcState.variableValues));
+    }
 
-    // Hip: 1/4 measurement + ease
-    double? bodiceHipWidth = measurements.hipCircumference != null
-        ? (measurements.hipCircumference! / 4) + 2.0
-        : null;
+    final methodEntity = world.entities[methodId];
+    final method = methodEntity?.get<PatternMethodComponent>();
+    if (method == null) {
+      print(
+          "Calculation Error: Selected pattern method (ID: $methodId) not found.");
+      return;
+    }
 
-    // Front Interscye: 1/2 measurement + correction
-    double? frontInterscyeWidth = measurements.frontInterscye != null
-        ? (measurements.frontInterscye! / 2) + 1.0
-        : null;
+    // --- Dynamic Calculation Logic ---
+    final expressionContext = <String, dynamic>{};
+    // 1. Add all raw measurements to the context.
+    expressionContext.addAll(
+        measurements.toJson()..removeWhere((key, value) => value == null));
 
-    // Back Interscye: 1/2 measurement - correction
-    double? backInterscyeWidth = measurements.backInterscye != null
-        ? (measurements.backInterscye! / 2) - 1.0
-        : null;
+    // 2. Add all dynamic variables to the context, using defaults if not provided.
+    for (var variable in method.variables) {
+      expressionContext[variable.key] =
+          calcState.variableValues[variable.key] ?? variable.defaultValue;
+    }
 
-    // Sleeve Width: 1/2 measurement + ease
-    double? sleeveWidth = measurements.armCircumference != null
-        ? (measurements.armCircumference! / 2) + 2.0
-        : null;
+    final results = <String, double?>{};
+    final evaluator = const ExpressionEvaluator();
 
-    // Sleeve Cuff: 1/2 measurement
-    double? sleeveCuffWidth = measurements.wristCircumference != null
-        ? (measurements.wristCircumference! / 2)
-        : null;
+    // 3. Evaluate each formula.
+    for (final formula in method.formulas) {
+      try {
+        final expression = Expression.parse(formula.expression);
+        final result = evaluator.eval(expression, expressionContext);
+        if (result is num) {
+          results[formula.resultKey] = result.toDouble();
+          // Add the result to the context so it can be used in subsequent formulas.
+          expressionContext[formula.resultKey] = result.toDouble();
+        }
+      } catch (e) {
+        print("Error evaluating formula for '${formula.resultKey}': $e");
+        results[formula.resultKey] = null;
+      }
+    }
 
-    // Create the result component and add it to the customer entity.
-    final results = CalculationResultComponent(
-      bodiceBustWidth: bodiceBustWidth,
-      bodiceWaistWidth: bodiceWaistWidth,
-      bodiceHipWidth: bodiceHipWidth,
-      frontInterscyeWidth: frontInterscyeWidth,
-      backInterscyeWidth: backInterscyeWidth,
-      sleeveWidth: sleeveWidth,
-      sleeveCuffWidth: sleeveCuffWidth,
-    );
-
-    customer.add(results);
+    // 4. Create the result component and add it to the customer entity.
+    customer.add(CalculationResultComponent.fromJson(results));
   }
 
   @override

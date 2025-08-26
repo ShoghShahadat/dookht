@@ -1,4 +1,6 @@
 import 'package:nexus/nexus.dart';
+import 'package:tailor_assistant/modules/calculations/components/calculation_state_component.dart';
+import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
 
 // Import all custom serializable components from the project.
 import '../modules/calculations/components/calculation_result_component.dart';
@@ -26,11 +28,19 @@ void registerCustomComponents() {
     (json) => MeasurementComponent.fromJson(json),
   );
 
-  // Register the new calculation result component.
   registry.register(
     'CalculationResultComponent',
     (json) => CalculationResultComponent.fromJson(json),
   );
 
-  // Add any new serializable components here in the future.
+  // Register the new components for the dynamic calculation engine.
+  registry.register(
+    'PatternMethodComponent',
+    (json) => PatternMethodComponent.fromJson(json),
+  );
+
+  registry.register(
+    'CalculationStateComponent',
+    (json) => CalculationStateComponent.fromJson(json),
+  );
 }

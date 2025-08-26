@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 // Hide the conflicting name from the nexus package to resolve ambiguity.
 import 'package:nexus/nexus.dart' hide ThemeProviderService;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tailor_assistant/modules/pattern_methods/pattern_methods_module.dart';
 
 import 'core/component_registry.dart';
 import 'modules/calculations/calculation_module.dart';
@@ -62,7 +63,7 @@ class TailorAssistantApp extends StatelessWidget {
           final world = NexusWorld();
           world.loadModule(InputModule());
           world.loadModule(PersistenceModule());
-          world.loadModule(AppLifecycleModule()); // Add the lifecycle module
+          world.loadModule(AppLifecycleModule());
           world.loadModule(ThemingModule());
           world.loadModule(MainScreenModule());
           world.loadModule(ThemeSelectorModule());
@@ -71,6 +72,8 @@ class TailorAssistantApp extends StatelessWidget {
           world.loadModule(ViewManagerModule());
           world.loadModule(CalculationPageModule());
           world.loadModule(CalculationModule());
+          // Load the new module that provides the pattern methods.
+          world.loadModule(PatternMethodsModule());
           return world;
         },
       ),
