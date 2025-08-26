@@ -12,17 +12,22 @@ class ViewManagerSystem extends System {
     listen<ShowCustomerListEvent>((_) => _changeView(AppView.customerList));
     listen<ShowAddCustomerFormEvent>(
         (_) => _changeView(AppView.addCustomerForm));
-    // Listen for the event to show the calculation page.
     listen<ShowCalculationPageEvent>((event) =>
         _changeView(AppView.calculationPage, customerId: event.customerId));
+    // Listen for the event to show the method management page.
+    listen<ShowMethodManagementEvent>(
+        (_) => _changeView(AppView.methodManagement));
   }
 
   void _changeView(AppView view, {EntityId? customerId}) {
     final viewManager = _getViewManagerEntity();
     if (viewManager != null) {
+      // When navigating away from calculation page, clear the active customer id
+      final newCustomerId =
+          (view == AppView.calculationPage) ? customerId : null;
       viewManager.add(ViewStateComponent(
         currentView: view,
-        activeCustomerId: customerId,
+        activeCustomerId: newCustomerId,
       ));
     }
   }

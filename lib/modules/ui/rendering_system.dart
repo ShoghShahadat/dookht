@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
+import 'package:tailor_assistant/modules/method_management/ui/method_management_builder.dart';
 
 import '../calculations/ui/calculation_page_builder.dart';
 import '../customers/ui/add_customer_form_builder.dart';
@@ -14,7 +15,8 @@ class AppRenderingSystem extends FlutterRenderingSystem {
     'theme_selector': ThemeSelectorBuilder(),
     'customer_list': CustomerListBuilder(),
     'add_customer_form': AddCustomerFormBuilder(),
-    'calculation_page': CalculationPageBuilder(), // Register the new builder
+    'calculation_page': CalculationPageBuilder(),
+    'method_management': MethodManagementBuilder(), // Register the new builder
   };
 
   @override
@@ -65,11 +67,17 @@ class AppRenderingSystem extends FlutterRenderingSystem {
               return _widgetBuilders['add_customer_form']!
                   .build(context, this, id);
             }
-          // Add the case for the new calculation page.
           case AppView.calculationPage:
             final id = getAllIdsWithTag('calculation_page').firstOrNull;
             if (id != null) {
               return _widgetBuilders['calculation_page']!
+                  .build(context, this, id);
+            }
+          // Add the case for the new method management page.
+          case AppView.methodManagement:
+            final id = getAllIdsWithTag('method_management_page').firstOrNull;
+            if (id != null) {
+              return _widgetBuilders['method_management']!
                   .build(context, this, id);
             }
         }

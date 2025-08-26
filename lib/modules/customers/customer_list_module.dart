@@ -23,6 +23,15 @@ class CustomerListModule extends NexusModule {
       }));
     world.addEntity(addCustomerButton);
 
+    // --- Method Management Button Entity ---
+    final methodManagementButton = Entity()
+      ..add(TagsComponent({'method_management_button'}))
+      ..add(LifecyclePolicyComponent(isPersistent: true))
+      ..add(ClickableComponent((entity) {
+        world.eventBus.fire(ShowMethodManagementEvent());
+      }));
+    world.addEntity(methodManagementButton);
+
     // --- Customer List Container Entity ---
     final customerListContainer = Entity()
       ..add(TagsComponent({'customer_list_container'}))

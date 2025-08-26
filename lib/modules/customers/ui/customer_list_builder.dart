@@ -17,6 +17,8 @@ class CustomerListBuilder implements IWidgetBuilder {
         final customerIds = childrenComp?.children ?? [];
         final addCustomerButtonId =
             rs.getAllIdsWithTag('add_customer_button').firstOrNull;
+        final settingsButtonId =
+            rs.getAllIdsWithTag('method_management_button').firstOrNull;
         final themeManagerId = rs.getAllIdsWithTag('theme_manager').firstOrNull;
         final textColor = _getTextColor(rs, themeManagerId);
 
@@ -27,6 +29,15 @@ class CustomerListBuilder implements IWidgetBuilder {
             backgroundColor: Colors.white.withOpacity(0.1),
             elevation: 0,
             centerTitle: true,
+            actions: [
+              if (settingsButtonId != null)
+                IconButton(
+                  icon: Icon(Icons.settings_outlined, color: textColor),
+                  onPressed: () =>
+                      rs.manager?.send(EntityTapEvent(settingsButtonId)),
+                  tooltip: 'مدیریت متدها',
+                ),
+            ],
           ),
           body: customerIds.isEmpty
               ? _buildEmptyState(context, textColor)

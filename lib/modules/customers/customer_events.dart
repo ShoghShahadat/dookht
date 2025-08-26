@@ -30,3 +30,6 @@ class CustomerAddedEvent {
   final EntityId customerId;
   CustomerAddedEvent(this.customerId);
 }
+
+/// Event fired to show the new method management/settings page.
+class ShowMethodManagementEvent {}

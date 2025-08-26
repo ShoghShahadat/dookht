@@ -4,7 +4,8 @@ import 'package:nexus/nexus.dart';
 enum AppView {
   customerList,
   addCustomerForm,
-  calculationPage, // The new view for the calculation screen
+  calculationPage,
+  methodManagement, // The new view for the method management screen
 }
 
 /// A serializable component that holds the current view state of the application.
