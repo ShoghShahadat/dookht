@@ -2,27 +2,23 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
 import '../../customers/components/customer_component.dart';
+import '../../customers/components/measurement_component.dart';
 import '../../customers/customer_events.dart';
 import '../../ui/rendering_system.dart';
 import '../../ui/view_manager/view_manager_component.dart';
+import '../calculation_events.dart';
+import '../components/calculation_result_component.dart';
 
-/// A dedicated, self-contained widget builder for the pattern calculation screen.
 class CalculationPageBuilder implements IWidgetBuilder {
   @override
   Widget build(
       BuildContext context, FlutterRenderingSystem rs, EntityId entityId) {
     final viewManagerId = rs.getAllIdsWithTag('view_manager').firstOrNull;
-    if (viewManagerId == null) {
-      return const Center(child: Text("View manager not found!"));
-    }
+    if (viewManagerId == null) return const SizedBox.shrink();
 
-    // This builder needs the active customer ID from the ViewStateComponent.
     final viewState = rs.get<ViewStateComponent>(viewManagerId);
     final activeCustomerId = viewState?.activeCustomerId;
-
-    if (activeCustomerId == null) {
-      return const Center(child: Text("No active customer selected!"));
-    }
+    if (activeCustomerId == null) return const SizedBox.shrink();
 
     return _CalculationPageWidget(
       renderingSystem: rs,
@@ -43,21 +39,28 @@ class _CalculationPageWidget extends StatefulWidget {
 }
 
 class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
-  // Controllers for all measurement fields
   final Map<String, TextEditingController> _controllers = {};
 
   @override
   void initState() {
     super.initState();
-    // Initialize controllers for all fields
-    _controllers['bustCircumference'] = TextEditingController();
-    _controllers['waistCircumference'] = TextEditingController();
-    _controllers['hipCircumference'] = TextEditingController();
-    _controllers['frontInterscye'] = TextEditingController();
-    _controllers['backInterscye'] = TextEditingController();
-    _controllers['sleeveLength'] = TextEditingController();
-    _controllers['armCircumference'] = TextEditingController();
-    _controllers['wristCircumference'] = TextEditingController();
+    final rs = widget.renderingSystem;
+    final measurements = rs.get<MeasurementComponent>(widget.customerId);
+
+    _initializeController('bustCircumference', measurements?.bustCircumference);
+    _initializeController(
+        'waistCircumference', measurements?.waistCircumference);
+    _initializeController('hipCircumference', measurements?.hipCircumference);
+    _initializeController('frontInterscye', measurements?.frontInterscye);
+    _initializeController('backInterscye', measurements?.backInterscye);
+    _initializeController('sleeveLength', measurements?.sleeveLength);
+    _initializeController('armCircumference', measurements?.armCircumference);
+    _initializeController(
+        'wristCircumference', measurements?.wristCircumference);
+  }
+
+  void _initializeController(String key, double? value) {
+    _controllers[key] = TextEditingController(text: value?.toString() ?? '');
   }
 
   @override
@@ -95,37 +98,28 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
         centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: textColor),
-          onPressed: () {
-            rs.manager?.send(ShowCustomerListEvent());
-          },
+          onPressed: () => rs.manager?.send(ShowCustomerListEvent()),
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 80),
         child: Column(
           children: [
-            _buildSection('اندازه‌های اصلی', textColor, [
+            _buildSection('اندازه‌ها', textColor, [
               _buildTextField('bustCircumference', 'دور سینه', textColor),
               _buildTextField('waistCircumference', 'دور کمر', textColor),
               _buildTextField('hipCircumference', 'دور باسن', textColor),
-            ]),
-            const SizedBox(height: 20),
-            _buildSection('اندازه‌های عرضی', textColor, [
               _buildTextField('frontInterscye', 'کارور جلو', textColor),
               _buildTextField('backInterscye', 'کارور پشت', textColor),
-            ]),
-            const SizedBox(height: 20),
-            _buildSection('اندازه‌های آستین', textColor, [
               _buildTextField('sleeveLength', 'قد آستین', textColor),
               _buildTextField('armCircumference', 'دور بازو', textColor),
               _buildTextField('wristCircumference', 'دور مچ', textColor),
             ]),
             const SizedBox(height: 30),
             ElevatedButton.icon(
-              onPressed: () {
-                // Calculation logic will be triggered here in the future
-              },
-              icon: const Icon(Icons.calculate),
+              onPressed: () =>
+                  rs.manager?.send(PerformCalculationEvent(widget.customerId)),
+              icon: const Icon(Icons.calculate_outlined),
               label: const Text('محاسبه کن'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
@@ -133,21 +127,67 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
+                    borderRadius: BorderRadius.circular(30)),
               ),
             ),
             const SizedBox(height: 30),
-            _buildSection('نتایج الگو', textColor, [
-              // Results will be displayed here
-              const ListTile(
-                title: Text('نتایج در اینجا نمایش داده خواهند شد',
-                    style: TextStyle(color: Colors.white70)),
-              )
-            ]),
+            // The results section now listens for changes on the customer entity.
+            AnimatedBuilder(
+                animation: rs.getNotifier(widget.customerId),
+                builder: (context, _) {
+                  final results =
+                      rs.get<CalculationResultComponent>(widget.customerId);
+                  return _buildSection('نتایج الگو', textColor,
+                      _buildResultTiles(results, textColor));
+                }),
           ],
         ),
       ),
+    );
+  }
+
+  List<Widget> _buildResultTiles(
+      CalculationResultComponent? results, Color textColor) {
+    if (results == null)
+      return [const Text('...', style: TextStyle(color: Colors.white70))];
+
+    final tiles = <Widget>[];
+    if (results.bodiceBustWidth != null)
+      tiles.add(
+          _resultTile('عرض کادر سینه', results.bodiceBustWidth, textColor));
+    if (results.bodiceWaistWidth != null)
+      tiles.add(
+          _resultTile('عرض کادر کمر', results.bodiceWaistWidth, textColor));
+    if (results.bodiceHipWidth != null)
+      tiles
+          .add(_resultTile('عرض کادر باسن', results.bodiceHipWidth, textColor));
+    if (results.frontInterscyeWidth != null)
+      tiles.add(_resultTile(
+          'پهنای کارور جلو', results.frontInterscyeWidth, textColor));
+    if (results.backInterscyeWidth != null)
+      tiles.add(_resultTile(
+          'پهنای کارور پشت', results.backInterscyeWidth, textColor));
+    if (results.sleeveWidth != null)
+      tiles.add(
+          _resultTile('گشادی کف حلقه آستین', results.sleeveWidth, textColor));
+    if (results.sleeveCuffWidth != null)
+      tiles
+          .add(_resultTile('عرض مچ آستین', results.sleeveCuffWidth, textColor));
+
+    return tiles.isNotEmpty
+        ? tiles
+        : [
+            const Text('برای دیدن نتایج، مقادیر را وارد و محاسبه کنید.',
+                style: TextStyle(color: Colors.white70))
+          ];
+  }
+
+  Widget _resultTile(String title, double? value, Color textColor) {
+    return ListTile(
+      title: Text(title, style: TextStyle(color: textColor.withOpacity(0.8))),
+      trailing: Text('${value?.toStringAsFixed(2) ?? '-'} cm',
+          style: TextStyle(
+              color: textColor, fontWeight: FontWeight.bold, fontSize: 16)),
     );
   }
 
@@ -171,7 +211,7 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
                       color: textColor,
                       fontSize: 18,
                       fontWeight: FontWeight.bold)),
-              const Divider(color: Colors.white30, height: 20),
+              const Divider(color: Colors.white30, height: 20, thickness: 0.5),
               ...children,
             ],
           ),
@@ -185,6 +225,13 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: TextFormField(
         controller: _controllers[key],
+        onChanged: (value) {
+          widget.renderingSystem.manager?.send(UpdateMeasurementEvent(
+            customerId: widget.customerId,
+            fieldKey: key,
+            value: double.tryParse(value),
+          ));
+        },
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         style: TextStyle(color: textColor),
         decoration: InputDecoration(
@@ -193,11 +240,9 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
           suffixText: 'cm',
           suffixStyle: TextStyle(color: textColor.withOpacity(0.5)),
           enabledBorder: UnderlineInputBorder(
-            borderSide: BorderSide(color: textColor.withOpacity(0.3)),
-          ),
-          focusedBorder: UnderlineInputBorder(
-            borderSide: BorderSide(color: textColor),
-          ),
+              borderSide: BorderSide(color: textColor.withOpacity(0.3))),
+          focusedBorder:
+              UnderlineInputBorder(borderSide: BorderSide(color: textColor)),
         ),
       ),
     );
