@@ -22,3 +22,13 @@ class UpdatePatternMethodEvent {
     required this.newFormulas,
   });
 }
+
+/// Event fired to create a new, blank pattern method and navigate to its edit page.
+class CreatePatternMethodEvent {}
+
+/// Event fired to delete a pattern method.
+class DeletePatternMethodEvent {
+  final EntityId methodId;
+
+  DeletePatternMethodEvent(this.methodId);
+}

@@ -46,14 +46,23 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
   final Map<String, TextEditingController> _variableControllers = {};
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Re-initialize controllers when dependencies change, which can happen
+    // when the underlying data from the rendering system is updated.
     _initializeControllers();
   }
 
   void _initializeControllers() {
     final rs = widget.renderingSystem;
     final measurements = rs.get<MeasurementComponent>(widget.customerId);
+    final calcState = rs.get<CalculationStateComponent>(widget.customerId);
+
+    // Clear old controllers to prevent memory leaks
+    _measurementControllers.values.forEach((c) => c.dispose());
+    _measurementControllers.clear();
+    _variableControllers.values.forEach((c) => c.dispose());
+    _variableControllers.clear();
 
     // Initialize measurement controllers
     _initMeasurementController(
@@ -71,13 +80,8 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
         'wristCircumference', measurements?.wristCircumference);
 
     // Initialize variable controllers based on the selected method
-    _initVariableControllers();
-  }
-
-  void _initVariableControllers() {
-    final rs = widget.renderingSystem;
-    final calcState = rs.get<CalculationStateComponent>(widget.customerId);
-    final methodId = calcState?.selectedMethodId;
+    final methodId = calcState?.selectedMethodId ??
+        rs.getAllIdsWithTag('pattern_method').firstOrNull;
     if (methodId == null) return;
 
     final method = rs.get<PatternMethodComponent>(methodId);
@@ -134,12 +138,12 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 80),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
         child: AnimatedBuilder(
           animation: rs.getNotifier(widget.customerId),
           builder: (context, _) {
             // Re-initialize variable controllers if the method changes
-            _initVariableControllers();
+            _initializeControllers();
             return Column(
               children: [
                 _buildMethodSelector(textColor),
@@ -194,9 +198,10 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
     final rs = widget.renderingSystem;
     final results = rs.get<CalculationResultComponent>(widget.customerId);
     final calcState = rs.get<CalculationStateComponent>(widget.customerId);
-    final method = (calcState?.selectedMethodId != null)
-        ? rs.get<PatternMethodComponent>(calcState!.selectedMethodId!)
-        : null;
+    final methodId = calcState?.selectedMethodId ??
+        rs.getAllIdsWithTag('pattern_method').firstOrNull;
+    final method =
+        (methodId != null) ? rs.get<PatternMethodComponent>(methodId) : null;
 
     return _buildSection(
         'نتایج الگو', textColor, _buildResultTiles(results, method, textColor));
@@ -232,15 +237,28 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
     final rs = widget.renderingSystem;
     final allMethodIds = rs.getAllIdsWithTag('pattern_method');
     final calcState = rs.get<CalculationStateComponent>(widget.customerId);
-    final selectedMethodId =
-        calcState?.selectedMethodId ?? allMethodIds.firstOrNull;
+    EntityId? selectedMethodId = calcState?.selectedMethodId;
+
+    // If no method is selected yet, or if the selected method was deleted, default to the first one.
+    if (selectedMethodId == null || !allMethodIds.contains(selectedMethodId)) {
+      selectedMethodId = allMethodIds.firstOrNull;
+      // Post a frame to update the state with the default method
+      if (selectedMethodId != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          rs.manager?.send(SelectPatternMethodEvent(
+            customerId: widget.customerId,
+            methodId: selectedMethodId!,
+          ));
+        });
+      }
+    }
 
     final items = allMethodIds.map((id) {
       final method = rs.get<PatternMethodComponent>(id);
       return DropdownMenuItem<EntityId>(
         value: id,
         child: Text(method?.name ?? 'متد ناشناس',
-            style: const TextStyle(color: Colors.black)),
+            style: const TextStyle(color: Colors.black87)),
       );
     }).toList();
 
@@ -270,14 +288,18 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
           ),
         )
       else
-        Text('هیچ متدی یافت نشد.', style: TextStyle(color: textColor)),
+        Text('هیچ متدی یافت نشد. از بخش تنظیمات یک متد جدید بسازید.',
+            style: TextStyle(color: textColor)),
     ]);
   }
 
   List<Widget> _buildResultTiles(CalculationResultComponent? results,
       PatternMethodComponent? method, Color textColor) {
     if (results == null || method == null)
-      return [const Text('...', style: TextStyle(color: Colors.white70))];
+      return [
+        const Text('برای دیدن نتایج، مقادیر را وارد و محاسبه کنید.',
+            style: TextStyle(color: Colors.white70))
+      ];
 
     final tiles = method.formulas.map((formula) {
       final value = results.toJson()[formula.resultKey];
@@ -290,7 +312,7 @@ class _CalculationPageWidgetState extends State<_CalculationPageWidget> {
     return tiles.isNotEmpty
         ? tiles
         : [
-            const Text('برای دیدن نتایج، مقادیر را وارد و محاسبه کنید.',
+            const Text('محاسبات انجام شد، اما هیچ فرمولی نتیجه‌ای تولید نکرد.',
                 style: TextStyle(color: Colors.white70))
           ];
   }

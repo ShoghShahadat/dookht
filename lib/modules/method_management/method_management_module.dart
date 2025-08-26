@@ -1,4 +1,5 @@
 import 'package:nexus/nexus.dart';
+import 'package:tailor_assistant/modules/method_management/method_management_events.dart';
 import 'package:tailor_assistant/modules/method_management/method_management_system.dart';
 
 // A helper class to satisfy the SystemProvider interface.
@@ -23,6 +24,15 @@ class MethodManagementModule extends NexusModule {
       ..add(TagsComponent({'edit_method_page'}))
       ..add(LifecyclePolicyComponent(isPersistent: true));
     world.addEntity(editMethodPage);
+
+    // --- Add Method Button Entity ---
+    final addMethodButton = Entity()
+      ..add(TagsComponent({'add_method_button'}))
+      ..add(LifecyclePolicyComponent(isPersistent: true))
+      ..add(ClickableComponent((entity) {
+        world.eventBus.fire(CreatePatternMethodEvent());
+      }));
+    world.addEntity(addMethodButton);
   }
 
   @override

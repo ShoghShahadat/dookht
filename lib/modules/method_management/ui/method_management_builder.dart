@@ -32,6 +32,8 @@ class _MethodManagementWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final textColor = _getTextColor();
     final allMethodIds = renderingSystem.getAllIdsWithTag('pattern_method');
+    final addMethodButtonId =
+        renderingSystem.getAllIdsWithTag('add_method_button').firstOrNull;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -46,22 +48,51 @@ class _MethodManagementWidget extends StatelessWidget {
               renderingSystem.manager?.send(ShowCustomerListEvent()),
         ),
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(20),
-        itemCount: allMethodIds.length,
-        itemBuilder: (context, index) {
-          final methodId = allMethodIds[index];
-          // Use AnimatedBuilder to listen for changes on the method entity itself
-          return AnimatedBuilder(
-            animation: renderingSystem.getNotifier(methodId),
-            builder: (context, _) {
-              final method =
-                  renderingSystem.get<PatternMethodComponent>(methodId);
-              if (method == null) return const SizedBox.shrink();
-              return _buildMethodCard(methodId, method, textColor);
-            },
-          );
-        },
+      body: allMethodIds.isEmpty
+          ? _buildEmptyState(textColor)
+          : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+              itemCount: allMethodIds.length,
+              itemBuilder: (context, index) {
+                final methodId = allMethodIds[index];
+                return AnimatedBuilder(
+                  animation: renderingSystem.getNotifier(methodId),
+                  builder: (context, _) {
+                    final method =
+                        renderingSystem.get<PatternMethodComponent>(methodId);
+                    if (method == null) return const SizedBox.shrink();
+                    return _buildMethodCard(methodId, method, textColor);
+                  },
+                );
+              },
+            ),
+      floatingActionButton: addMethodButtonId != null
+          ? FloatingActionButton(
+              onPressed: () {
+                renderingSystem.manager
+                    ?.send(EntityTapEvent(addMethodButtonId));
+              },
+              backgroundColor: Colors.white.withOpacity(0.9),
+              child: const Icon(Icons.add, color: Colors.black87),
+              tooltip: 'ایجاد متد جدید',
+            )
+          : null,
+    );
+  }
+
+  Widget _buildEmptyState(Color textColor) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.style_outlined,
+              color: textColor.withOpacity(0.7), size: 80),
+          const SizedBox(height: 16),
+          Text(
+            'هیچ متدی تعریف نشده است',
+            style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 18),
+          ),
+        ],
       ),
     );
   }
@@ -86,12 +117,14 @@ class _MethodManagementWidget extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    method.name,
-                    style: TextStyle(
-                        color: textColor,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Text(
+                      method.name,
+                      style: TextStyle(
+                          color: textColor,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold),
+                    ),
                   ),
                   IconButton(
                     icon: Icon(Icons.edit_outlined,
@@ -125,6 +158,15 @@ class _MethodManagementWidget extends StatelessWidget {
 
   Widget _buildDetailSection(
       String title, List<String> items, Color textColor) {
+    if (items.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(left: 8.0),
+        child: Text('$title (خالی)',
+            style: TextStyle(
+                color: textColor.withOpacity(0.6),
+                fontStyle: FontStyle.italic)),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

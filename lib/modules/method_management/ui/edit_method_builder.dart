@@ -40,9 +40,18 @@ class _EditMethodWidget extends StatefulWidget {
 
 class _EditMethodWidgetState extends State<_EditMethodWidget> {
   late TextEditingController _nameController;
-  late List<TextEditingController> _varLabelControllers;
+
+  // State for dynamic formulas
+  late List<Formula> _formulas;
   late List<TextEditingController> _formulaLabelControllers;
   late List<TextEditingController> _formulaExpressionControllers;
+  late List<TextEditingController> _formulaResultKeyControllers;
+
+  // State for dynamic variables
+  late List<DynamicVariable> _variables;
+  late List<TextEditingController> _varLabelControllers;
+  late List<TextEditingController> _varKeyControllers;
+  late List<TextEditingController> _varDefaultValueControllers;
 
   @override
   void initState() {
@@ -56,44 +65,101 @@ class _EditMethodWidgetState extends State<_EditMethodWidget> {
     if (method == null) return;
 
     _nameController = TextEditingController(text: method.name);
-    _varLabelControllers = method.variables
-        .map((v) => TextEditingController(text: v.label))
+
+    // Initialize variables
+    _variables = List.from(method.variables);
+    _varLabelControllers =
+        _variables.map((v) => TextEditingController(text: v.label)).toList();
+    _varKeyControllers =
+        _variables.map((v) => TextEditingController(text: v.key)).toList();
+    _varDefaultValueControllers = _variables
+        .map((v) => TextEditingController(text: v.defaultValue.toString()))
         .toList();
-    _formulaLabelControllers = method.formulas
-        .map((f) => TextEditingController(text: f.label))
-        .toList();
-    _formulaExpressionControllers = method.formulas
+
+    // Initialize formulas
+    _formulas = List.from(method.formulas);
+    _formulaLabelControllers =
+        _formulas.map((f) => TextEditingController(text: f.label)).toList();
+    _formulaExpressionControllers = _formulas
         .map((f) => TextEditingController(text: f.expression))
         .toList();
+    _formulaResultKeyControllers =
+        _formulas.map((f) => TextEditingController(text: f.resultKey)).toList();
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _varLabelControllers.forEach((c) => c.dispose());
+    _varKeyControllers.forEach((c) => c.dispose());
+    _varDefaultValueControllers.forEach((c) => c.dispose());
     _formulaLabelControllers.forEach((c) => c.dispose());
     _formulaExpressionControllers.forEach((c) => c.dispose());
+    _formulaResultKeyControllers.forEach((c) => c.dispose());
     super.dispose();
   }
 
-  void _saveChanges() {
-    final originalMethod =
-        widget.renderingSystem.get<PatternMethodComponent>(widget.methodId);
-    if (originalMethod == null) return;
+  void _addVariable() {
+    setState(() {
+      final newKey = 'newVar${_variables.length + 1}';
+      _variables.add(
+          DynamicVariable(key: newKey, label: 'متغیر جدید', defaultValue: 0.0));
+      _varLabelControllers.add(TextEditingController(text: 'متغیر جدید'));
+      _varKeyControllers.add(TextEditingController(text: newKey));
+      _varDefaultValueControllers.add(TextEditingController(text: '0.0'));
+    });
+  }
 
+  void _deleteVariable(int index) {
+    setState(() {
+      _variables.removeAt(index);
+      _varLabelControllers[index].dispose();
+      _varLabelControllers.removeAt(index);
+      _varKeyControllers[index].dispose();
+      _varKeyControllers.removeAt(index);
+      _varDefaultValueControllers[index].dispose();
+      _varDefaultValueControllers.removeAt(index);
+    });
+  }
+
+  void _addFormula() {
+    setState(() {
+      final newKey = 'newResult${_formulas.length + 1}';
+      _formulas
+          .add(Formula(resultKey: newKey, expression: '', label: 'نتیجه جدید'));
+      _formulaLabelControllers.add(TextEditingController(text: 'نتیجه جدید'));
+      _formulaExpressionControllers.add(TextEditingController());
+      _formulaResultKeyControllers.add(TextEditingController(text: newKey));
+    });
+  }
+
+  void _deleteFormula(int index) {
+    setState(() {
+      _formulas.removeAt(index);
+      _formulaLabelControllers[index].dispose();
+      _formulaLabelControllers.removeAt(index);
+      _formulaExpressionControllers[index].dispose();
+      _formulaExpressionControllers.removeAt(index);
+      _formulaResultKeyControllers[index].dispose();
+      _formulaResultKeyControllers.removeAt(index);
+    });
+  }
+
+  void _saveChanges() {
     final updatedVariables = <DynamicVariable>[];
-    for (int i = 0; i < originalMethod.variables.length; i++) {
+    for (int i = 0; i < _variables.length; i++) {
       updatedVariables.add(DynamicVariable(
-        key: originalMethod.variables[i].key, // Key is immutable for now
+        key: _varKeyControllers[i].text,
         label: _varLabelControllers[i].text,
-        defaultValue: originalMethod.variables[i].defaultValue,
+        defaultValue:
+            double.tryParse(_varDefaultValueControllers[i].text) ?? 0.0,
       ));
     }
 
     final updatedFormulas = <Formula>[];
-    for (int i = 0; i < originalMethod.formulas.length; i++) {
+    for (int i = 0; i < _formulas.length; i++) {
       updatedFormulas.add(Formula(
-        resultKey: originalMethod.formulas[i].resultKey, // Key is immutable
+        resultKey: _formulaResultKeyControllers[i].text,
         label: _formulaLabelControllers[i].text,
         expression: _formulaExpressionControllers[i].text,
       ));
@@ -106,8 +172,46 @@ class _EditMethodWidgetState extends State<_EditMethodWidget> {
       newFormulas: updatedFormulas,
     ));
 
-    // Navigate back to the management list
     widget.renderingSystem.manager?.send(ShowMethodManagementEvent());
+  }
+
+  Future<void> _showDeleteConfirmationDialog() async {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: AlertDialog(
+            backgroundColor: Colors.grey[800]?.withOpacity(0.8),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            title:
+                const Text('تایید حذف', style: TextStyle(color: Colors.white)),
+            content: const Text(
+                'آیا از حذف این متد اطمینان دارید؟ این عمل غیرقابل بازگشت است.',
+                style: TextStyle(color: Colors.white70)),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('انصراف',
+                    style: TextStyle(color: Colors.white70)),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              TextButton(
+                child: const Text('حذف کن',
+                    style: TextStyle(color: Colors.redAccent)),
+                onPressed: () {
+                  widget.renderingSystem.manager
+                      ?.send(DeletePatternMethodEvent(widget.methodId));
+                  Navigator.of(context).pop();
+                  widget.renderingSystem.manager
+                      ?.send(ShowMethodManagementEvent());
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Color _getTextColor() {
@@ -124,9 +228,8 @@ class _EditMethodWidgetState extends State<_EditMethodWidget> {
         widget.renderingSystem.get<PatternMethodComponent>(widget.methodId);
     if (method == null) {
       return const Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Center(child: Text('Method not found!')),
-      );
+          backgroundColor: Colors.transparent,
+          body: Center(child: Text('Method not found!')));
     }
     final textColor = _getTextColor();
 
@@ -145,6 +248,11 @@ class _EditMethodWidgetState extends State<_EditMethodWidget> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            onPressed: _showDeleteConfirmationDialog,
+            tooltip: 'حذف متد',
+          ),
+          IconButton(
             icon: Icon(Icons.save, color: textColor),
             onPressed: _saveChanges,
             tooltip: 'ذخیره تغییرات',
@@ -152,7 +260,7 @@ class _EditMethodWidgetState extends State<_EditMethodWidget> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
         child: Column(
           children: [
             _buildSection('اطلاعات کلی', textColor, [
@@ -160,41 +268,111 @@ class _EditMethodWidgetState extends State<_EditMethodWidget> {
             ]),
             const SizedBox(height: 20),
             _buildSection(
-                'متغیرها', textColor, _buildVariableEditors(method, textColor)),
+                'متغیرها', textColor, _buildVariableEditors(textColor)),
             const SizedBox(height: 20),
             _buildSection(
-                'فرمول‌ها', textColor, _buildFormulaEditors(method, textColor)),
+                'فرمول‌ها', textColor, _buildFormulaEditors(textColor)),
           ],
         ),
       ),
     );
   }
 
-  List<Widget> _buildVariableEditors(
-      PatternMethodComponent method, Color textColor) {
-    return List.generate(method.variables.length, (index) {
-      return _buildTextField(_varLabelControllers[index],
-          'برچسب متغیر: ${method.variables[index].key}', textColor);
+  List<Widget> _buildVariableEditors(Color textColor) {
+    List<Widget> variableWidgets = List.generate(_variables.length, (index) {
+      return Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                  child: _buildTextField(
+                      _varLabelControllers[index], 'برچسب متغیر', textColor)),
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.redAccent),
+                onPressed: () => _deleteVariable(index),
+              )
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildTextField(_varKeyControllers[index],
+              'کلید متغیر (انگلیسی، بدون فاصله)', textColor,
+              isExpression: true),
+          const SizedBox(height: 8),
+          _buildTextField(
+              _varDefaultValueControllers[index], 'مقدار پیش‌فرض', textColor,
+              isExpression: true),
+          if (index < _variables.length - 1)
+            const Divider(color: Colors.white24, height: 32),
+        ],
+      );
     });
+
+    variableWidgets.add(
+      Padding(
+        padding: const EdgeInsets.only(top: 16.0),
+        child: Center(
+          child: ElevatedButton.icon(
+            onPressed: _addVariable,
+            icon: const Icon(Icons.add),
+            label: const Text('افزودن متغیر'),
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.black,
+              backgroundColor: Colors.white.withOpacity(0.8),
+            ),
+          ),
+        ),
+      ),
+    );
+    return variableWidgets;
   }
 
-  List<Widget> _buildFormulaEditors(
-      PatternMethodComponent method, Color textColor) {
-    return List.generate(method.formulas.length, (index) {
+  List<Widget> _buildFormulaEditors(Color textColor) {
+    List<Widget> formulaWidgets = List.generate(_formulas.length, (index) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildTextField(_formulaLabelControllers[index],
-              'برچسب نتیجه: ${method.formulas[index].resultKey}', textColor),
+          Row(
+            children: [
+              Expanded(
+                  child: _buildTextField(_formulaLabelControllers[index],
+                      'برچسب نتیجه', textColor)),
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.redAccent),
+                onPressed: () => _deleteFormula(index),
+              )
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildTextField(_formulaResultKeyControllers[index],
+              'کلید نتیجه (انگلیسی، بدون فاصله)', textColor,
+              isExpression: true),
           const SizedBox(height: 8),
           _buildTextField(
               _formulaExpressionControllers[index], 'عبارت فرمول', textColor,
               isExpression: true),
-          if (index < method.formulas.length - 1)
-            const Divider(color: Colors.white24, height: 24),
+          if (index < _formulas.length - 1)
+            const Divider(color: Colors.white24, height: 32),
         ],
       );
     });
+
+    formulaWidgets.add(
+      Padding(
+        padding: const EdgeInsets.only(top: 16.0),
+        child: Center(
+          child: ElevatedButton.icon(
+            onPressed: _addFormula,
+            icon: const Icon(Icons.add),
+            label: const Text('افزودن فرمول'),
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.black,
+              backgroundColor: Colors.white.withOpacity(0.8),
+            ),
+          ),
+        ),
+      ),
+    );
+    return formulaWidgets;
   }
 
   Widget _buildSection(String title, Color textColor, List<Widget> children) {
@@ -230,7 +408,7 @@ class _EditMethodWidgetState extends State<_EditMethodWidget> {
       TextEditingController controller, String label, Color textColor,
       {bool isExpression = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: TextFormField(
         controller: controller,
         style: TextStyle(

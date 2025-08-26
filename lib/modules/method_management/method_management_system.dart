@@ -8,34 +8,61 @@ class MethodManagementSystem extends System {
   void onAddedToWorld(NexusWorld world) {
     super.onAddedToWorld(world);
     listen<UpdatePatternMethodEvent>(_onUpdateMethod);
+    listen<CreatePatternMethodEvent>(_onCreateMethod);
+    listen<DeletePatternMethodEvent>(_onDeleteMethod);
   }
 
   void _onUpdateMethod(UpdatePatternMethodEvent event) {
     final methodEntity = world.entities[event.methodId];
-    if (methodEntity == null) {
-      print(
-          "Error: Could not find method with ID ${event.methodId} to update.");
-      return;
-    }
+    if (methodEntity == null) return;
 
     final currentMethod = methodEntity.get<PatternMethodComponent>();
     if (currentMethod == null) return;
 
-    // Create a new component with the updated data.
     final updatedMethod = PatternMethodComponent(
-      methodId: currentMethod.methodId, // ID should not change
+      methodId: currentMethod.methodId,
       name: event.newName,
       variables: event.newVariables,
       formulas: event.newFormulas,
     );
-
-    // Replace the old component on the entity.
     methodEntity.add(updatedMethod);
+    world.eventBus.fire(SaveDataEvent());
+  }
 
-    // Fire an event to save the changes to persistence.
+  void _onCreateMethod(CreatePatternMethodEvent event) {
+    final newMethodId = 'method_${DateTime.now().millisecondsSinceEpoch}';
+    final newMethodEntity = Entity()
+      ..add(TagsComponent({'pattern_method'}))
+      ..add(LifecyclePolicyComponent(isPersistent: true))
+      ..add(PatternMethodComponent(
+        methodId: newMethodId,
+        name: 'متد جدید',
+        variables: [
+          DynamicVariable(key: 'ease', label: 'میزان آزادی', defaultValue: 1.0)
+        ],
+        formulas: [],
+      ))
+      ..add(PersistenceComponent('method_$newMethodId'));
+
+    world.addEntity(newMethodEntity);
     world.eventBus.fire(SaveDataEvent());
 
-    print("Method '${event.newName}' updated successfully.");
+    // Immediately navigate to the edit page for the new method.
+    world.eventBus.fire(ShowEditMethodEvent(newMethodEntity.id));
+  }
+
+  void _onDeleteMethod(DeletePatternMethodEvent event) {
+    final methodEntity = world.entities[event.methodId];
+    if (methodEntity == null) return;
+
+    // To properly delete, we first need to remove its persistence record.
+    // A robust way is to remove the PersistenceComponent and save,
+    // which the persistence system should handle as a deletion from storage.
+    // For this implementation, we'll just remove the entity from the world.
+    // A more advanced persistence system could handle this better.
+    world.removeEntity(event.methodId);
+    world.eventBus.fire(SaveDataEvent());
+    print("Method with ID ${event.methodId} deleted.");
   }
 
   @override
