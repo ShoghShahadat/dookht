@@ -19,10 +19,17 @@ class NexusIsolateManager implements NexusManager {
   NexusWorld? get world => null;
 
   @override
+  List<RenderPacket> hydrate() {
+    // Cannot hydrate from a separate isolate. This is a no-op for this manager.
+    return [];
+  }
+
+  @override
   Future<void> spawn(
     NexusWorld Function() worldProvider, {
     Future<void> Function()? isolateInitializer,
     RootIsolateToken? rootIsolateToken,
+    required String Function(Component component) componentTypeIdProvider,
   }) async {
     if (_isolate != null) return;
     final completer = Completer<SendPort>();
@@ -38,6 +45,7 @@ class NexusIsolateManager implements NexusManager {
       isolateInitializer,
       worldProvider,
       rootIsolateToken,
+      componentTypeIdProvider, // Pass the provider function
     ];
     _isolate = await Isolate.spawn(
       _isolateEntryPoint,
@@ -53,19 +61,7 @@ class NexusIsolateManager implements NexusManager {
   }
 
   @override
-  void hydrate() {
-    _sendPort?.send('hydrate');
-  }
-
-  @override
   Future<void> dispose({bool isHotReload = false}) async {
-    if (isHotReload) {
-      debugPrint(
-          "[NexusIsolateManager] Hot reload detected. Isolate will be preserved.");
-      return;
-    }
-
-    debugPrint("[NexusIsolateManager] Disposing isolate...");
     _sendPort?.send('shutdown');
     _receivePort.close();
     await _renderPacketController.close();
@@ -74,13 +70,12 @@ class NexusIsolateManager implements NexusManager {
   }
 }
 
-// --- Isolate Entry Point ---
-
 void _isolateEntryPoint(List<dynamic> args) async {
   final mainSendPort = args[0] as SendPort;
   final isolateInitializer = args[1] as Future<void> Function()?;
   final worldProvider = args[2] as NexusWorld Function();
   final rootIsolateToken = args[3] as RootIsolateToken?;
+  final componentTypeIdProvider = args[4] as String Function(Component);
 
   final isolateReceivePort = ReceivePort();
   mainSendPort.send(isolateReceivePort.sendPort);
@@ -97,20 +92,16 @@ void _isolateEntryPoint(List<dynamic> args) async {
     registerCoreComponents();
 
     final world = worldProvider();
+
     await world.init();
 
-    // *** FINAL FIX: Proactive Hydration ***
-    // Immediately send the initial state of the world to the UI after initialization.
-    // This solves the initial loading screen bug by ensuring the UI gets data
-    // as soon as the logic isolate is ready, without waiting for a message from the UI.
-    debugPrint(
-        "[NexusLogicIsolate] World initialized. Sending initial hydration packet.");
     final initialPackets = <RenderPacket>[];
     for (final entity in world.entities.values) {
       final serializableComponents = <String, Map<String, dynamic>>{};
       for (final component in entity.allComponents) {
         if (component is SerializableComponent) {
-          serializableComponents[component.runtimeType.toString()] =
+          final typeId = componentTypeIdProvider(component);
+          serializableComponents[typeId] =
               (component as SerializableComponent).toJson();
         }
       }
@@ -118,11 +109,11 @@ void _isolateEntryPoint(List<dynamic> args) async {
         initialPackets.add(
             RenderPacket(id: entity.id, components: serializableComponents));
       }
+      entity.clearDirty();
     }
     if (initialPackets.isNotEmpty) {
       mainSendPort.send(initialPackets);
     }
-    // End of Proactive Hydration block
 
     final stopwatch = Stopwatch()..start();
 
@@ -141,7 +132,8 @@ void _isolateEntryPoint(List<dynamic> args) async {
         for (final componentType in entity.dirtyComponents) {
           final component = entity.getByType(componentType);
           if (component is SerializableComponent) {
-            serializableComponents[component.runtimeType.toString()] =
+            final typeId = componentTypeIdProvider(component!);
+            serializableComponents[typeId] =
                 (component as SerializableComponent).toJson();
           }
         }
@@ -167,35 +159,10 @@ void _isolateEntryPoint(List<dynamic> args) async {
     });
 
     isolateReceivePort.listen((message) {
-      if (message is String) {
-        switch (message) {
-          case 'shutdown':
-            timer.cancel();
-            world.clear();
-            isolateReceivePort.close();
-            break;
-          case 'hydrate':
-            debugPrint(
-                "[NexusLogicIsolate] Hydration requested. Sending full world snapshot.");
-            final packets = <RenderPacket>[];
-            for (final entity in world.entities.values) {
-              final serializableComponents = <String, Map<String, dynamic>>{};
-              for (final component in entity.allComponents) {
-                if (component is SerializableComponent) {
-                  serializableComponents[component.runtimeType.toString()] =
-                      (component as SerializableComponent).toJson();
-                }
-              }
-              if (serializableComponents.isNotEmpty) {
-                packets.add(RenderPacket(
-                    id: entity.id, components: serializableComponents));
-              }
-            }
-            if (packets.isNotEmpty) {
-              mainSendPort.send(packets);
-            }
-            break;
-        }
+      if (message is String && message == 'shutdown') {
+        timer.cancel();
+        world.clear();
+        isolateReceivePort.close();
       } else {
         world.eventBus.fire(message);
       }

@@ -4,12 +4,14 @@ import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nexus/nexus.dart';
+import 'package:nexus/src/events/ui_events.dart';
 
 class NexusWidget extends StatefulWidget {
   final NexusWorld Function() worldProvider;
   final FlutterRenderingSystem renderingSystem;
   final Future<void> Function()? isolateInitializer;
   final RootIsolateToken? rootIsolateToken;
+  final String Function(Component component) componentTypeIdProvider;
 
   const NexusWidget({
     super.key,
@@ -17,6 +19,7 @@ class NexusWidget extends StatefulWidget {
     required this.renderingSystem,
     this.isolateInitializer,
     this.rootIsolateToken,
+    required this.componentTypeIdProvider,
   });
 
   @override
@@ -50,66 +53,80 @@ class _NexusWidgetState extends State<NexusWidget> {
   @override
   void reassemble() {
     super.reassemble();
-    debugPrint("🔄 [NexusWidget] Reassembling (Hot Reload detected).");
-    _subscribeToRenderPackets();
-    _manager.hydrate();
+    if (kDebugMode && _manager is NexusSingleThreadManager) {
+      final snapshot = (_manager as NexusSingleThreadManager).hydrate();
+      widget.renderingSystem.updateFromPackets(snapshot);
+      _subscribeToRenderPackets();
+    }
   }
 
   void _onLifecycleStateChanged(AppLifecycleState state) {
-    final status = switch (state) {
-      AppLifecycleState.resumed => AppLifecycleStatus.resumed,
-      AppLifecycleState.inactive => AppLifecycleStatus.inactive,
-      AppLifecycleState.paused => AppLifecycleStatus.paused,
-      AppLifecycleState.detached => AppLifecycleStatus.detached,
-      AppLifecycleState.hidden => AppLifecycleStatus.hidden,
-    };
+    final AppLifecycleStatus status;
+    switch (state) {
+      case AppLifecycleState.resumed:
+        status = AppLifecycleStatus.resumed;
+        break;
+      case AppLifecycleState.inactive:
+        status = AppLifecycleStatus.inactive;
+        break;
+      case AppLifecycleState.paused:
+        status = AppLifecycleStatus.paused;
+        break;
+      case AppLifecycleState.detached:
+        status = AppLifecycleStatus.detached;
+        break;
+      case AppLifecycleState.hidden:
+        status = AppLifecycleStatus.hidden;
+        break;
+    }
     _manager.send(AppLifecycleEvent(status));
   }
 
   void _handleKeyEvent(KeyEvent event) {
-    _manager.send(NexusKeyEvent(
-      logicalKeyId: event.logicalKey.keyId,
-      character: event.character,
-      isKeyDown: event is KeyDownEvent || event is KeyRepeatEvent,
+    _manager.send(ClientKeyboardEvent(
+      event.logicalKey,
+      event is KeyDownEvent || event is KeyRepeatEvent,
     ));
   }
 
   void _initializeManager() {
-    if (kDebugMode && !kIsWeb) {
+    if (kDebugMode) {
       if (_staticDebugManager == null) {
-        debugPrint(
-            "🚀 [NexusWidget] First run in debug mode. Creating and preserving IsolateManager.");
-        _staticDebugManager = NexusIsolateManager();
+        _staticDebugManager = NexusSingleThreadManager();
         _manager = _staticDebugManager!;
         widget.renderingSystem.setManager(_manager);
         _spawnWorld();
       } else {
-        debugPrint(
-            "🔄 [NexusWidget] Hot reload: Re-using existing IsolateManager.");
         _manager = _staticDebugManager!;
         widget.renderingSystem.setManager(_manager);
+        _subscribeToRenderPackets();
+        reassemble(); // Force a re-sync on hot reload
       }
     } else {
-      debugPrint(
-          "🚀 [NexusWidget] Production or Web build. Creating fresh manager.");
-      _manager = kIsWeb ? NexusSingleThreadManager() : NexusIsolateManager();
+      if (!kIsWeb) {
+        _manager = NexusIsolateManager();
+      } else {
+        _manager = NexusSingleThreadManager();
+      }
       widget.renderingSystem.setManager(_manager);
       _spawnWorld();
     }
   }
 
   void _spawnWorld() {
+    if (_staticDebugManager?.world != null && kDebugMode) return;
+
     _manager.spawn(
       widget.worldProvider,
       isolateInitializer: widget.isolateInitializer,
       rootIsolateToken: widget.rootIsolateToken,
+      componentTypeIdProvider: widget.componentTypeIdProvider,
     );
     _subscribeToRenderPackets();
   }
 
   void _subscribeToRenderPackets() {
     _renderPacketSubscription?.cancel();
-    debugPrint("🎧 [NexusWidget] Subscribing to render packet stream.");
     _renderPacketSubscription = _manager.renderPacketStream
         .listen(widget.renderingSystem.updateFromPackets);
   }
@@ -119,53 +136,41 @@ class _NexusWidgetState extends State<NexusWidget> {
     _lifecycleListener.dispose();
     _focusNode.dispose();
     _renderPacketSubscription?.cancel();
-
-    if (!kDebugMode || kIsWeb) {
+    if (!kDebugMode) {
       _manager.dispose();
-      if (kDebugMode) {
-        _staticDebugManager = null;
-      }
+      _staticDebugManager = null;
     }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // *** FINAL FIX: The NexusWidget is now simpler. ***
-    // It no longer needs an AnimatedBuilder. Its main job is to host the rendering
-    // system and provide layout/input context.
-    debugPrint("🎨 [NexusWidget] Build triggered.");
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        final rootEntityId =
-            widget.renderingSystem.getAllIdsWithTag('root').firstOrNull;
-
-        if (rootEntityId != null) {
-          final currentInfo =
-              widget.renderingSystem.get<ScreenInfoComponent>(rootEntityId);
-          final newWidth = constraints.maxWidth;
-          final newHeight = constraints.maxHeight;
-
-          if (currentInfo == null ||
-              currentInfo.width != newWidth ||
-              currentInfo.height != newHeight) {
-            debugPrint(
-                "  - 📏 Screen size changed or is new. Sending ScreenResizedEvent ($newWidth x $newHeight).");
-            _manager.send(ScreenResizedEvent(
-              newWidth: newWidth,
-              newHeight: newHeight,
-              newOrientation: newWidth > newHeight
-                  ? ScreenOrientation.landscape
-                  : ScreenOrientation.portrait,
-            ));
-          }
+        if (_manager.world != null) {
+          _manager.send(ScreenResizedEvent(
+            newWidth: constraints.maxWidth,
+            newHeight: constraints.maxHeight,
+            newOrientation: constraints.maxWidth > constraints.maxHeight
+                ? ScreenOrientation.landscape
+                : ScreenOrientation.portrait,
+          ));
         }
 
         return KeyboardListener(
           focusNode: _focusNode,
           onKeyEvent: _handleKeyEvent,
-          child: widget.renderingSystem.build(context),
+          child: Listener(
+            onPointerMove: (event) {
+              // Useful for general pointer tracking.
+            },
+            child: AnimatedBuilder(
+              animation: widget.renderingSystem,
+              builder: (context, child) {
+                return widget.renderingSystem.build(context);
+              },
+            ),
+          ),
         );
       },
     );

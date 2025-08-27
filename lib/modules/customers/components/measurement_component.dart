@@ -1,7 +1,12 @@
+// FILE: lib/modules/customers/components/measurement_component.dart
+// (English comments for code clarity)
+// FINAL FIX v7: Added a static, stable typeId for robust serialization.
+
 import 'package:nexus/nexus.dart';
 
-/// A serializable component to store all raw body measurements for a customer.
 class MeasurementComponent extends Component with SerializableComponent {
+  static const String typeId = 'measurement';
+
   // Main body measurements
   final double? bustCircumference; // دور سینه
   final double? waistCircumference; // دور کمر

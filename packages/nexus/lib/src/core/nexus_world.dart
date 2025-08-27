@@ -1,14 +1,16 @@
 // FILE: packages/nexus/lib/src/core/nexus_world.dart
 // (English comments for code clarity)
-// FRAMEWORK-LEVEL FIX: This file contains the core logic change to prevent race conditions.
+// FINAL FIX v12: Added tracking for newly created entities within a frame.
+// This allows the isolate manager to send a full snapshot of new entities
+// to the UI, solving the missing data issue on restoration.
 
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:nexus/nexus.dart';
+import 'package:nexus/src/components/lifecycle_policy_component.dart';
+import 'package:nexus/src/core/utils/frequency.dart';
+import 'package:nexus/src/systems/garbage_collector_system.dart';
 
-/// Manages all the entities, systems, and modules in the Nexus world.
-/// This class has been re-engineered with a robust, multi-stage initialization
-/// process to completely eliminate race conditions during startup.
 class NexusWorld {
   final Map<EntityId, Entity> _entities = {};
   final List<System> _systems = [];
@@ -20,6 +22,8 @@ class NexusWorld {
   GarbageCollectorSystem? _gc;
 
   final Set<EntityId> _removedEntityIdsThisFrame = {};
+  // THE FIX: Add a set to track newly added entities.
+  final Set<EntityId> _newEntityIdsThisFrame = {};
 
   Map<EntityId, Entity> get entities => Map.unmodifiable(_entities);
   List<System> get systems => List.unmodifiable(_systems);
@@ -44,26 +48,10 @@ class NexusWorld {
     addEntity(rootEntity);
   }
 
-  /// **RE-ENGINEERED INITIALIZATION LIFECYCLE**
   Future<void> init() async {
-    // Stage 1: Load all modules and create all initial entities from providers.
-    // This ensures the world's structure is fully defined before any logic runs.
-    for (final module in _modules) {
-      module.onLoad(this);
-      for (final provider in module.entityProviders) {
-        provider.createEntities(this);
-      }
-    }
-
-    // Stage 2: Initialize all systems.
-    // This is now guaranteed to run *after* all initial entities (like containers) exist.
-    // This is where PersistenceSystem will now safely run and load data.
     for (final system in _systems) {
       await system.init();
     }
-
-    // Note: The PersistenceSystem is now responsible for firing the DataLoadedEvent
-    // at the end of its `_load` method, signaling the final step of initialization.
   }
 
   void loadModule(NexusModule module) {
@@ -73,9 +61,19 @@ class NexusWorld {
         addSystem(system);
       }
     }
+    module.onLoad(this);
+    for (final provider in module.entityProviders) {
+      provider.createEntities(this);
+    }
   }
 
   void addEntity(Entity entity) {
+    if (kDebugMode &&
+        !entity.has<LifecyclePolicyComponent>() &&
+        entity.id != rootEntity.id) {
+      debugPrint(
+          '[NexusWorld] WARNING: Entity ID ${entity.id} was added without a LifecyclePolicyComponent. This is highly discouraged.');
+    }
     if (_entities.containsKey(entity.id)) {
       if (kDebugMode) {
         print(
@@ -83,6 +81,9 @@ class NexusWorld {
       }
     }
     _entities[entity.id] = entity;
+    // THE FIX: Track the new entity's ID.
+    _newEntityIdsThisFrame.add(entity.id);
+
     for (final system in _systems) {
       if (system.matches(entity)) {
         system.onEntityAdded(entity);
@@ -108,12 +109,25 @@ class NexusWorld {
     return removed;
   }
 
+  // THE FIX: Add a getter for new entities.
+  Set<EntityId> getAndClearNewEntities() {
+    final Set<EntityId> newEntities = Set.from(_newEntityIdsThisFrame);
+    _newEntityIdsThisFrame.clear();
+    return newEntities;
+  }
+
   void addSystem(System system) {
     if (system is GarbageCollectorSystem) {
       _gc = system;
     }
     _systems.add(system);
     system.onAddedToWorld(this);
+  }
+
+  void addSystems(List<System> systems) {
+    for (final system in systems) {
+      addSystem(system);
+    }
   }
 
   void removeSystem(System system) {
@@ -125,8 +139,41 @@ class NexusWorld {
     }
   }
 
+  void removeSystems(List<System> systems) {
+    for (final system in systems) {
+      removeSystem(system);
+    }
+  }
+
+  Entity createSpawner({
+    required Entity Function() prefab,
+    Frequency frequency = Frequency.never,
+    bool wantsToFire = true,
+    bool Function()? condition,
+    PositionComponent? position,
+    String? tag,
+  }) {
+    final spawnerEntity = Entity();
+    final components = <Component>[];
+
+    if (tag != null) {
+      components.add(TagsComponent({tag}));
+    }
+
+    components.add(position ?? PositionComponent(x: 0, y: 0));
+    components.add(SpawnerComponent(
+      prefab: prefab,
+      frequency: frequency,
+      wantsToFire: wantsToFire,
+      condition: condition,
+    ));
+
+    spawnerEntity.addComponents(components);
+    addEntity(spawnerEntity);
+    return spawnerEntity;
+  }
+
   void update(double dt) {
-    // Run the garbage collector first, if it's enabled.
     _gc?.runGc(dt);
 
     final entitiesList = List<Entity>.from(_entities.values);
@@ -154,5 +201,6 @@ class NexusWorld {
     _modules.clear();
     eventBus.destroy();
     _removedEntityIdsThisFrame.clear();
+    _newEntityIdsThisFrame.clear();
   }
 }

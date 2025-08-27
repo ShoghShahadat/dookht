@@ -10,6 +10,7 @@ class NexusSingleThreadManager implements NexusManager {
 
   Ticker? _ticker;
   final _stopwatch = Stopwatch();
+  late final String Function(Component component) _componentTypeIdProvider;
 
   final _renderPacketController =
       StreamController<List<RenderPacket>>.broadcast();
@@ -17,18 +18,17 @@ class NexusSingleThreadManager implements NexusManager {
   Stream<List<RenderPacket>> get renderPacketStream =>
       _renderPacketController.stream;
 
-  /// *** NEW: Implements the hydrate method for single-threaded mode. ***
-  /// It creates a complete snapshot of the world and pushes it to the stream.
   @override
-  void hydrate() {
-    if (_world == null) return;
+  List<RenderPacket> hydrate() {
+    if (_world == null) return [];
 
     final packets = <RenderPacket>[];
     for (final entity in _world!.entities.values) {
       final serializableComponents = <String, Map<String, dynamic>>{};
       for (final component in entity.allComponents) {
         if (component is SerializableComponent) {
-          serializableComponents[component.runtimeType.toString()] =
+          final typeId = _componentTypeIdProvider(component);
+          serializableComponents[typeId] =
               (component as SerializableComponent).toJson();
         }
       }
@@ -37,10 +37,7 @@ class NexusSingleThreadManager implements NexusManager {
             RenderPacket(id: entity.id, components: serializableComponents));
       }
     }
-
-    if (packets.isNotEmpty) {
-      _renderPacketController.add(packets);
-    }
+    return packets;
   }
 
   void _updateLoop() {
@@ -56,7 +53,8 @@ class NexusSingleThreadManager implements NexusManager {
       for (final componentType in entity.dirtyComponents) {
         final component = entity.getByType(componentType);
         if (component is SerializableComponent) {
-          serializableComponents[component.runtimeType.toString()] =
+          final typeId = _componentTypeIdProvider(component!);
+          serializableComponents[typeId] =
               (component as SerializableComponent).toJson();
         }
       }
@@ -82,12 +80,23 @@ class NexusSingleThreadManager implements NexusManager {
     NexusWorld Function() worldProvider, {
     Future<void> Function()? isolateInitializer,
     RootIsolateToken? rootIsolateToken,
+    required String Function(Component component) componentTypeIdProvider,
   }) async {
+    _componentTypeIdProvider = componentTypeIdProvider;
     if (isolateInitializer != null) {
       await isolateInitializer();
     }
     _world = worldProvider();
     await _world!.init();
+
+    final initialPackets = hydrate();
+    if (initialPackets.isNotEmpty) {
+      _renderPacketController.add(initialPackets);
+    }
+    for (final entity in _world!.entities.values) {
+      entity.clearDirty();
+    }
+
     _stopwatch.start();
     _ticker = Ticker((_) => _updateLoop());
     _ticker!.start();
@@ -100,14 +109,10 @@ class NexusSingleThreadManager implements NexusManager {
 
   @override
   Future<void> dispose({bool isHotReload = false}) async {
-    // In single-threaded mode, hot reload is less of an issue,
-    // but we respect the flag for consistency.
-    if (isHotReload) {
-      _world?.eventBus.fire(SaveDataEvent());
+    if (isHotReload && _world != null) {
+      _world!.eventBus.fire(SaveDataEvent());
       _updateLoop();
-      return;
     }
-
     _ticker?.stop();
     _ticker?.dispose();
     _ticker = null;

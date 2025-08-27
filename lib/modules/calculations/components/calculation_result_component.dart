@@ -1,17 +1,22 @@
+// FILE: lib/modules/calculations/components/calculation_result_component.dart
+// (English comments for code clarity)
+// FINAL FIX v7: Added a static, stable typeId for robust serialization.
+
 import 'package:nexus/nexus.dart';
 
-/// A serializable component that stores the final calculated dimensions for a pattern.
 class CalculationResultComponent extends Component with SerializableComponent {
+  static const String typeId = 'calculation_result';
+
   // Bodice results
-  final double? bodiceBustWidth; // 1/4 دور سینه + آزادی
-  final double? bodiceWaistWidth; // 1/4 دور کمر
-  final double? bodiceHipWidth; // 1/4 دور باسن + آزادی
-  final double? frontInterscyeWidth; // 1/2 کارور جلو + اصلاح
-  final double? backInterscyeWidth; // 1/2 کارور پشت - اصلاح
+  final double? bodiceBustWidth;
+  final double? bodiceWaistWidth;
+  final double? bodiceHipWidth;
+  final double? frontInterscyeWidth;
+  final double? backInterscyeWidth;
 
   // Sleeve results
-  final double? sleeveWidth; // 1/2 دور بازو + آزادی
-  final double? sleeveCuffWidth; // 1/2 دور مچ
+  final double? sleeveWidth;
+  final double? sleeveCuffWidth;
 
   CalculationResultComponent({
     this.bodiceBustWidth,

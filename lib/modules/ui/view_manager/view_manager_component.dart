@@ -1,19 +1,22 @@
+// FILE: lib/modules/ui/view_manager/view_manager_component.dart
+// (English comments for code clarity)
+// FINAL FIX v7: Added a static, stable typeId for robust serialization.
+
 import 'package:nexus/nexus.dart';
 
-/// An enum representing the different primary views in the application.
 enum AppView {
   customerList,
   addCustomerForm,
   calculationPage,
   methodManagement,
-  editMethod, // The new view for editing a specific method
+  editMethod,
 }
 
-/// A serializable component that holds the current view state of the application.
 class ViewStateComponent extends Component with SerializableComponent {
+  static const String typeId = 'view_state';
+
   final AppView currentView;
   final EntityId? activeCustomerId;
-  // Store the ID of the method being edited.
   final EntityId? activeMethodId;
 
   ViewStateComponent({

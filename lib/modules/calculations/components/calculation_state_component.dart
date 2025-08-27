@@ -1,11 +1,13 @@
+// FILE: lib/modules/calculations/components/calculation_state_component.dart
+// (English comments for code clarity)
+// FINAL FIX v7: Added a static, stable typeId for robust serialization.
+
 import 'package:nexus/nexus.dart';
 
-// This component holds the transient state of the calculation page for a specific customer.
 class CalculationStateComponent extends Component with SerializableComponent {
-  // The ID of the currently selected pattern method entity.
-  final EntityId? selectedMethodId;
+  static const String typeId = 'calculation_state';
 
-  // A map of dynamic variable values provided by the user (e.g., {'ease': 1.5}).
+  final EntityId? selectedMethodId;
   final Map<String, double> variableValues;
 
   CalculationStateComponent({

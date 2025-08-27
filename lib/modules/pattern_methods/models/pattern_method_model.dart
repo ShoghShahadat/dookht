@@ -1,10 +1,13 @@
+// FILE: lib/modules/pattern_methods/models/pattern_method_model.dart
+// (English comments for code clarity)
+// FINAL FIX v7: Added a static, stable typeId for robust serialization.
+
 import 'package:nexus/nexus.dart';
 
-// Defines the structure for a single calculation formula.
 class Formula {
-  final String resultKey; // e.g., 'bodiceBustWidth'
-  final String expression; // e.g., '({bustCircumference} / 4) + {ease}'
-  final String label; // e.g., 'عرض کادر سینه'
+  final String resultKey;
+  final String expression;
+  final String label;
 
   Formula(
       {required this.resultKey, required this.expression, required this.label});
@@ -24,10 +27,9 @@ class Formula {
       };
 }
 
-// Defines the structure for a dynamic input variable.
 class DynamicVariable {
-  final String key; // e.g., 'ease'
-  final String label; // e.g., 'میزان آزادی'
+  final String key;
+  final String label;
   final double defaultValue;
 
   DynamicVariable(
@@ -48,8 +50,9 @@ class DynamicVariable {
       };
 }
 
-// A serializable component that holds the definition of a pattern-making method.
 class PatternMethodComponent extends Component with SerializableComponent {
+  static const String typeId = 'pattern_method';
+
   final String methodId;
   final String name;
   final List<Formula> formulas;

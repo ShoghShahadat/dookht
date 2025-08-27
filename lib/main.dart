@@ -1,9 +1,9 @@
 // FILE: lib/main.dart
 // (English comments for code clarity)
-// FINAL, ARCHITECTURALLY CORRECT IMPLEMENTATION v16
-// FIX: Moved entity reconstruction from the main isolate's worldProvider
-// into a dedicated system running on the logic isolate to prevent
-// components from being dropped during the isolate transfer.
+// FINAL, DEFINITIVE FIX v12: The root cause was a race condition where the
+// GarbageCollectorSystem was deleting the bootstrapEntity before the
+// LifecycleSystem could read from it. Adding a persistent LifecyclePolicyComponent
+// to the bootstrapEntity solves this permanently.
 
 import 'dart:convert';
 import 'dart:ui';
@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:nexus/nexus.dart' hide ThemeProviderService;
+import 'package:tailor_assistant/core/type_id_provider.dart';
 import 'package:tailor_assistant/modules/method_management/method_management_module.dart';
 import 'package:tailor_assistant/modules/pattern_methods/pattern_methods_module.dart';
 import 'package:path_provider/path_provider.dart';
@@ -117,18 +118,17 @@ class TailorAssistantApp extends StatelessWidget {
         renderingSystem: AppRenderingSystem(),
         isolateInitializer: () => _isolateInitializer(dbPath),
         rootIsolateToken: rootIsolateToken,
+        componentTypeIdProvider: appComponentTypeIdProvider,
         worldProvider: () {
           final world = NexusWorld();
 
-          // **THE FIX: Pass the raw data to the logic isolate via a BlackboardComponent.**
-          // The actual entity reconstruction will happen in a system on the other side.
           final bootstrapEntity = Entity()
             ..add(TagsComponent({'bootstrap_data'}))
+            // THE FIX: Make the data carrier persistent to prevent garbage collection.
+            ..add(LifecyclePolicyComponent(isPersistent: true))
             ..add(BlackboardComponent({'persistedRawData': persistedRawData}));
           world.addEntity(bootstrapEntity);
 
-          // Load all modules. The CustomerListModule now starts with an empty list,
-          // as the CustomerSystem will populate it after reconstruction.
           world.loadModule(InputModule());
           world.loadModule(AppLifecycleModule());
           world.loadModule(ThemingModule());

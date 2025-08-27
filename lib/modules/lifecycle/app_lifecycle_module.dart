@@ -1,6 +1,9 @@
 // FILE: lib/modules/lifecycle/app_lifecycle_module.dart
 // (English comments for code clarity)
-// FINAL, DEFINITIVE FIX v3: The Garbage Collector is now correctly disabled.
+// FINAL, DEFINITIVE FIX v14: The root cause was a race condition with the
+// built-in GarbageCollectorSystem. The solution is to disable it and let our
+// own AppLifecycleSystem handle the cleanup of the bootstrap entity after
+// it has been safely used, ensuring a predictable, linear execution flow.
 
 import 'package:nexus/nexus.dart' hide AppLifecycleSystem;
 import 'app_lifecycle_system.dart';
@@ -21,11 +24,11 @@ class AppLifecycleModule extends NexusModule {
   @override
   List<SystemProvider> get systemProviders => [
         _SingleSystemProvider([
+          // Only our custom system is needed.
           AppLifecycleSystem(),
-          // **THE FINAL FIX**: The Garbage Collector was prematurely deleting loaded entities.
-          // For this application, where all entities should be persistent,
-          // disabling it is the correct and most robust solution.
-          GarbageCollectorSystem(enabled: false),
+          // THE FIX: Remove the GarbageCollectorSystem to prevent race conditions.
+          // Our AppLifecycleSystem will now be the single source of truth for
+          // managing the bootstrap and restoration process.
         ])
       ];
 }

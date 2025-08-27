@@ -1,7 +1,13 @@
+// FILE: lib/modules/customers/components/customer_component.dart
+// (English comments for code clarity)
+// FINAL FIX v7: Added a static, stable typeId for robust serialization.
+
 import 'package:nexus/nexus.dart';
 
-/// A serializable data component that holds the information for a single customer.
 class CustomerComponent extends Component with SerializableComponent {
+  // Static, constant type identifier. This will not be changed by minification.
+  static const String typeId = 'customer';
+
   final String firstName;
   final String lastName;
   final String phone;

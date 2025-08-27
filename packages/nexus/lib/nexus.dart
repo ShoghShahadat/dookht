@@ -1,7 +1,7 @@
-// FILE: packages/nexus/lib/nexus.dart
-
 /// The main library for the Nexus framework.
 library nexus;
+
+import 'package:nexus/nexus.dart';
 
 // --- Core ---
 export 'src/core/archetype.dart';
@@ -50,9 +50,6 @@ export 'src/events/history_events.dart';
 export 'src/events/theme_events.dart';
 export 'src/events/responsive_events.dart';
 export 'src/events/ui_events.dart';
-// --- FINAL FIX: Export core persistence events so they are accessible to the app ---
-export 'src/systems/persistence_system.dart'
-    show DataLoadedEvent, SaveDataEvent;
 
 // --- Components ---
 export 'src/components/animation_component.dart';
@@ -122,8 +119,7 @@ export 'src/systems/list_state_system.dart';
 export 'src/systems/lifecycle_system.dart';
 export 'src/systems/morphing_system.dart';
 export 'src/systems/particle_lifecycle_system.dart';
-export 'src/systems/persistence_system.dart'
-    show PersistenceSystem; // Hide events here to avoid ambiguity
+export 'src/systems/persistence_system.dart';
 export 'src/systems/physics_system.dart';
 export 'src/systems/pointer_system.dart';
 export 'src/systems/pulsing_warning_system.dart';
@@ -146,3 +142,6 @@ export 'src/flutter/nexus_isolate_manager.dart';
 export 'src/flutter/nexus_single_thread_manager.dart';
 export 'src/flutter/builder_tags.dart';
 export 'src/flutter/widget_builder.dart';
+
+// THE FIX: Moved the typedef to the end to ensure Component is defined.
+typedef ComponentTypeIdProvider = String Function(Component component);
