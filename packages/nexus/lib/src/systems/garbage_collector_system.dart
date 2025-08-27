@@ -1,39 +1,19 @@
-// FILE: packages/nexus/lib/src/systems/garbage_collector_system.dart
-// (English comments for code clarity)
-
 import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
-// --- FINAL FIX: Import the event from the persistence system to listen to it ---
-import 'package:nexus/src/systems/persistence_system.dart';
+import 'package:nexus/src/components/lifecycle_policy_component.dart';
 
 /// A background system that periodically checks for and removes entities
 /// that meet their destruction condition, preventing logical memory leaks.
 class GarbageCollectorSystem extends System {
   double _timer = 0.0;
   final double _checkInterval; // How often to run the check, in seconds.
+  final bool enabled; // --- NEW: Flag to enable/disable the GC ---
 
-  // --- FINAL FIX: A flag to ensure the GC waits for the initial data load ---
-  bool _initialLoadComplete = false;
-
-  GarbageCollectorSystem({double checkInterval = 2.0})
-      : _checkInterval = checkInterval;
-
-  @override
-  void onAddedToWorld(NexusWorld world) {
-    super.onAddedToWorld(world);
-    // --- FINAL FIX: Listen for the DataLoadedEvent ---
-    // This event is fired by PersistenceSystem after all data is loaded.
-    listen<DataLoadedEvent>(_onDataLoaded);
-    debugPrint(
-        '[GarbageCollector] Initialized and is now patiently waiting for DataLoadedEvent...');
-  }
-
-  void _onDataLoaded(DataLoadedEvent event) {
-    // Once data is loaded, it's safe for the GC to start working.
-    debugPrint(
-        '✅ [GarbageCollector] Received DataLoadedEvent! The GC is now active and will start checking for disposable entities.');
-    _initialLoadComplete = true;
-  }
+  GarbageCollectorSystem({
+    double checkInterval = 2.0,
+    this.enabled =
+        true, // --- NEW: Enabled by default for backward compatibility ---
+  }) : _checkInterval = checkInterval;
 
   @override
   bool matches(Entity entity) {
@@ -43,16 +23,14 @@ class GarbageCollectorSystem extends System {
 
   @override
   void update(Entity entity, double dt) {
-    // The logic is handled in runGc.
+    // The logic is handled in the runGc method.
   }
 
   /// This method should be called once per frame from a central system.
   void runGc(double dt) {
-    // --- FINAL FIX: The GC will remain dormant until the initial load is complete ---
-    if (!_initialLoadComplete) {
-      // Specialized Log: Waiting for data load to complete.
-      // debugPrint('[GarbageCollector] Still waiting...'); // Uncomment for verbose logging
-      return; // Do nothing until PersistenceSystem gives the green light.
+    // --- NEW: Immediately exit if the system is disabled ---
+    if (!enabled) {
+      return;
     }
 
     _timer += dt;
@@ -61,7 +39,6 @@ class GarbageCollectorSystem extends System {
     }
     _timer = 0.0;
 
-    debugPrint('🧹 [GarbageCollector] Running periodic check...');
     final entitiesToCheck = List<Entity>.from(world.entities.values);
     final entitiesToRemove = <EntityId>[];
 
@@ -71,7 +48,7 @@ class GarbageCollectorSystem extends System {
       if (policy == null) {
         if (entity.id != world.rootEntity.id) {
           debugPrint(
-              '    - [GC Warning] Entity ID ${entity.id} is missing a LifecyclePolicyComponent.');
+              '[GarbageCollector] WARNING: Entity ID ${entity.id} is missing a LifecyclePolicyComponent. This can lead to memory leaks.');
         }
         continue;
       }
@@ -83,12 +60,10 @@ class GarbageCollectorSystem extends System {
 
     if (entitiesToRemove.isNotEmpty) {
       debugPrint(
-          '    - [GC Action] Purging ${entitiesToRemove.length} entities: ${entitiesToRemove.join(', ')}');
+          '[GarbageCollector] Purging ${entitiesToRemove.length} entities.');
       for (final id in entitiesToRemove) {
         world.removeEntity(id);
       }
-    } else {
-      debugPrint('    - [GC Result] No entities to purge in this cycle.');
     }
   }
 }

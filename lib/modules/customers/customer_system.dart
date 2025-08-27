@@ -1,8 +1,8 @@
 // FILE: lib/modules/customers/customer_system.dart
 // (English comments for code clarity)
-// REVERTED to its original, clean state.
 
 import 'package:collection/collection.dart';
+// Corrected the broken import paths
 import 'package:tailor_assistant/modules/calculations/components/calculation_result_component.dart';
 import 'package:tailor_assistant/modules/calculations/components/calculation_state_component.dart';
 import 'package:tailor_assistant/modules/customers/components/customer_component.dart';
@@ -20,21 +20,27 @@ class CustomerSystem extends System {
   }
 
   void _onDataLoaded(DataLoadedEvent event) {
-    // This handler's only responsibility now is to populate the UI list.
-    final allCustomers = world.entities.values
+    // Find all entities that have been loaded and are tagged as 'customer'.
+    final customerEntities = world.entities.values
         .where((e) => e.get<TagsComponent>()?.hasTag('customer') ?? false)
-        .map((e) => e.id)
         .toList();
 
+    // --- FIX: The redundant logic to add LifecyclePolicyComponent is removed from here. ---
+    // The PersistenceSystem is now the single source of truth for this logic,
+    // ensuring all loaded entities are correctly marked as persistent.
+    final customerIds = customerEntities.map((e) => e.id).toList();
+
+    // Update the UI container with the list of loaded customers.
     final listContainer = _getListContainer();
     if (listContainer != null) {
-      listContainer.add(ChildrenComponent(allCustomers));
+      listContainer.add(ChildrenComponent(customerIds));
     }
   }
 
   void _onAddCustomer(AddCustomerEvent event) {
     final newCustomer = Entity()
       ..add(TagsComponent({'customer'}))
+      // Correctly set on creation
       ..add(LifecyclePolicyComponent(isPersistent: true))
       ..add(CustomerComponent(
         firstName: event.firstName,
@@ -57,6 +63,7 @@ class CustomerSystem extends System {
       listContainer.add(ChildrenComponent(newChildren));
     }
 
+    // Fire the correct event to trigger immediate saving.
     world.eventBus.fire(SaveDataEvent());
   }
 

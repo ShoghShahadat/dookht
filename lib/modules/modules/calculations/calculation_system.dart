@@ -1,3 +1,6 @@
+// FILE: lib/modules/modules/calculations/calculation_system.dart
+// (English comments for code clarity)
+
 import 'package:collection/collection.dart';
 import 'package:tailor_assistant/modules/calculations/calculation_events.dart';
 import 'package:tailor_assistant/modules/calculations/components/calculation_result_component.dart';
@@ -18,12 +21,16 @@ class CalculationSystem extends System {
     listen<UpdateCalculationVariableEvent>(_onUpdateVariable);
   }
 
-  // **FIX**: A recursive function to correctly extract all identifiers from an expression tree.
+  // --- DEFINITIVE FIX: A recursive function to correctly extract all identifiers from an expression tree. ---
+  // This replaces the non-existent `expression.identifiers()` method.
   Set<String> _getIdentifiers(Expression expression) {
     final identifiers = <String>{};
     if (expression is Variable) {
       identifiers.add(expression.identifier.name);
     } else if (expression is MemberExpression) {
+      // This is a simplified handling. A full implementation might need to
+      // reconstruct the full member access path (e.g., 'a.b.c').
+      // For this app's use case, just getting the root object is enough.
       identifiers.addAll(_getIdentifiers(expression.object));
     } else if (expression is IndexExpression) {
       identifiers.addAll(_getIdentifiers(expression.object));
@@ -42,6 +49,8 @@ class CalculationSystem extends System {
       identifiers.addAll(_getIdentifiers(expression.test));
       identifiers.addAll(_getIdentifiers(expression.consequent));
       identifiers.addAll(_getIdentifiers(expression.alternate));
+    } else if (expression is Literal) {
+      // Literals (like numbers or strings) don't have identifiers.
     }
     return identifiers;
   }
@@ -142,7 +151,7 @@ class CalculationSystem extends System {
         final requiredVars = _getIdentifiers(expression);
 
         final canEvaluate =
-            requiredVars.every((v) => expressionContext[v] != null);
+            requiredVars.every((v) => expressionContext.containsKey(v));
 
         if (canEvaluate) {
           final result = evaluator.eval(expression, expressionContext);

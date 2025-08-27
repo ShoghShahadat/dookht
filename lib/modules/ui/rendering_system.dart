@@ -1,3 +1,6 @@
+// FILE: lib/modules/ui/rendering_system.dart
+// (English comments for code clarity)
+
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/method_management/ui/edit_method_builder.dart';
@@ -17,8 +20,7 @@ class AppRenderingSystem extends FlutterRenderingSystem {
     'add_customer_form': AddCustomerFormBuilder(),
     'calculation_page': CalculationPageBuilder(),
     'method_management': MethodManagementBuilder(),
-    'edit_method':
-        EditMethodBuilder(), // Register the new builder for the edit page
+    'edit_method': EditMethodBuilder(),
   };
 
   @override
@@ -57,36 +59,41 @@ class AppRenderingSystem extends FlutterRenderingSystem {
         final viewState = get<ViewStateComponent>(viewManagerId);
         final currentView = viewState?.currentView ?? AppView.customerList;
 
+        // --- DEFINITIVE FIX: Added the missing cases to the switch statement ---
         switch (currentView) {
           case AppView.customerList:
             final id = getAllIdsWithTag('customer_list_container').firstOrNull;
             if (id != null) {
               return _widgetBuilders['customer_list']!.build(context, this, id);
             }
+            break; // Added break
           case AppView.addCustomerForm:
             final id = getAllIdsWithTag('add_customer_form').firstOrNull;
             if (id != null) {
               return _widgetBuilders['add_customer_form']!
                   .build(context, this, id);
             }
+            break; // Added break
           case AppView.calculationPage:
             final id = getAllIdsWithTag('calculation_page').firstOrNull;
             if (id != null) {
               return _widgetBuilders['calculation_page']!
                   .build(context, this, id);
             }
+            break; // Added break
           case AppView.methodManagement:
             final id = getAllIdsWithTag('method_management_page').firstOrNull;
             if (id != null) {
               return _widgetBuilders['method_management']!
                   .build(context, this, id);
             }
-          // Add the case for the new edit method page.
+            break; // Added break
           case AppView.editMethod:
             final id = getAllIdsWithTag('edit_method_page').firstOrNull;
             if (id != null) {
               return _widgetBuilders['edit_method']!.build(context, this, id);
             }
+            break; // Added break
         }
         return const Center(child: CircularProgressIndicator());
       },

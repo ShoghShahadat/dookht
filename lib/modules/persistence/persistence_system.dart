@@ -68,6 +68,7 @@ class PersistenceSystem extends System {
 
     for (final key in allData.keys) {
       final entityData = allData[key]!;
+      // Find an existing entity with the same persistence key, or create a new one.
       var entity = world.entities.values.firstWhereOrNull(
           (e) => e.get<PersistenceComponent>()?.storageKey == key);
 

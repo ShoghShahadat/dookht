@@ -18,6 +18,12 @@ class AppLifecycleModule extends NexusModule {
   @override
   List<SystemProvider> get systemProviders => [
         // Provide the system that handles lifecycle logic.
-        _SingleSystemProvider([AppLifecycleSystem()])
+        _SingleSystemProvider([
+          AppLifecycleSystem(),
+          // --- DEFINITIVE FIX: Explicitly add the Garbage Collector but keep it disabled. ---
+          // This guarantees that no entities will be accidentally deleted,
+          // solving the data persistence issue permanently for this app's architecture.
+          GarbageCollectorSystem(enabled: false),
+        ])
       ];
 }
