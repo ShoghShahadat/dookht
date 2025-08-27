@@ -5,10 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
 import 'package:collection/collection.dart';
 
-// The DataLoadedEvent is now correctly imported from the core nexus package.
-// No local definition is needed.
-
 /// A system that handles saving and loading entities with a [PersistenceComponent].
+/// This system is now also responsible for directly updating the UI state after loading.
 class PersistenceSystem extends System {
   StorageAdapter? _storage;
   bool _hasLoaded = false;
@@ -37,9 +35,6 @@ class PersistenceSystem extends System {
 
     if (entitiesToSave.isEmpty) return;
 
-    debugPrint(
-        '[PersistenceSystem] Received SaveDataEvent. Saving ${entitiesToSave.length} entities...');
-
     for (final entity in entitiesToSave) {
       final key = entity.get<PersistenceComponent>()!.storageKey;
       final entityJson = <String, dynamic>{};
@@ -51,7 +46,6 @@ class PersistenceSystem extends System {
         }
       }
       await _storage!.save('nexus_$key', entityJson);
-      debugPrint('[PersistenceSystem] -> Saved data for key: $key');
     }
   }
 
@@ -62,13 +56,13 @@ class PersistenceSystem extends System {
     final allData = await _storage!.loadAll();
     if (allData.isEmpty) {
       debugPrint('[PersistenceSystem] No data to load.');
-      world.eventBus.fire(DataLoadedEvent());
       return;
     }
 
+    final loadedCustomerIds = <EntityId>[];
+
     for (final key in allData.keys) {
       final entityData = allData[key]!;
-      // Find an existing entity with the same persistence key, or create a new one.
       var entity = world.entities.values.firstWhereOrNull(
           (e) => e.get<PersistenceComponent>()?.storageKey == key);
 
@@ -86,21 +80,33 @@ class PersistenceSystem extends System {
         }
       }
 
-      // --- THE DEFINITIVE, FINAL, AND CORRECT FIX ---
-      // We add the LifecyclePolicyComponent HERE.
-      // After reconstructing the entity from storage, but BEFORE adding it to the world.
-      // This guarantees that by the time the entity enters the world, it is already
-      // marked as persistent, winning the race against the Garbage Collector.
+      // Ensure the loaded entity is marked as persistent.
       entity.add(LifecyclePolicyComponent(isPersistent: true));
 
       if (!world.entities.containsKey(entity.id)) {
         world.addEntity(entity);
       }
+
+      // If this entity is a customer, add its ID to our temporary list.
+      if (entity.get<TagsComponent>()?.hasTag('customer') ?? false) {
+        loadedCustomerIds.add(entity.id);
+      }
+    }
+
+    // --- NEW DIRECT LOGIC: Update the customer list UI directly ---
+    // Find the entity that acts as the container for the customer list.
+    final listContainer = world.entities.values.firstWhereOrNull((e) =>
+        e.get<TagsComponent>()?.hasTag('customer_list_container') ?? false);
+
+    if (listContainer != null && loadedCustomerIds.isNotEmpty) {
+      // Directly add the list of loaded customer IDs to its ChildrenComponent.
+      listContainer.add(ChildrenComponent(loadedCustomerIds));
+      debugPrint(
+          '[PersistenceSystem] Directly updated customer list with ${loadedCustomerIds.length} customers.');
     }
 
     debugPrint(
         '[PersistenceSystem] Loaded ${allData.length} entities from storage.');
-    world.eventBus.fire(DataLoadedEvent());
   }
 
   @override
