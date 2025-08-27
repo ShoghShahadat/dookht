@@ -4,7 +4,7 @@ import 'package:tailor_assistant/modules/method_management/method_management_eve
 import '../../customers/customer_events.dart';
 import 'view_manager_component.dart';
 
-/// A system that manages the current visible view of the application.
+/// A system that  tose1 manages the current visible view of the application.
 class ViewManagerSystem extends System {
   @override
   void onAddedToWorld(NexusWorld world) {
