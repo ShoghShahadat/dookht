@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/method_management/ui/edit_method_builder.dart';
 import 'package:tailor_assistant/modules/method_management/ui/method_management_builder.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/ui/visual_formula_editor_builder.dart';
 
 import '../calculations/ui/calculation_page_builder.dart';
 import '../customers/ui/add_customer_form_builder.dart';
@@ -21,6 +22,8 @@ class AppRenderingSystem extends FlutterRenderingSystem {
     'calculation_page': CalculationPageBuilder(),
     'method_management': MethodManagementBuilder(),
     'edit_method': EditMethodBuilder(),
+    // ADDED: Register the new builder for the visual editor
+    'visual_formula_editor': VisualFormulaEditorBuilder(),
   };
 
   @override
@@ -59,41 +62,49 @@ class AppRenderingSystem extends FlutterRenderingSystem {
         final viewState = get<ViewStateComponent>(viewManagerId);
         final currentView = viewState?.currentView ?? AppView.customerList;
 
-        // --- DEFINITIVE FIX: Added the missing cases to the switch statement ---
         switch (currentView) {
           case AppView.customerList:
             final id = getAllIdsWithTag('customer_list_container').firstOrNull;
             if (id != null) {
               return _widgetBuilders['customer_list']!.build(context, this, id);
             }
-            break; // Added break
+            break;
           case AppView.addCustomerForm:
             final id = getAllIdsWithTag('add_customer_form').firstOrNull;
             if (id != null) {
               return _widgetBuilders['add_customer_form']!
                   .build(context, this, id);
             }
-            break; // Added break
+            break;
           case AppView.calculationPage:
             final id = getAllIdsWithTag('calculation_page').firstOrNull;
             if (id != null) {
               return _widgetBuilders['calculation_page']!
                   .build(context, this, id);
             }
-            break; // Added break
+            break;
           case AppView.methodManagement:
             final id = getAllIdsWithTag('method_management_page').firstOrNull;
             if (id != null) {
               return _widgetBuilders['method_management']!
                   .build(context, this, id);
             }
-            break; // Added break
+            break;
           case AppView.editMethod:
             final id = getAllIdsWithTag('edit_method_page').firstOrNull;
             if (id != null) {
               return _widgetBuilders['edit_method']!.build(context, this, id);
             }
-            break; // Added break
+            break;
+          // ADDED: Case for the new visual editor view
+          case AppView.visualFormulaEditor:
+            final id =
+                getAllIdsWithTag('visual_formula_editor_page').firstOrNull;
+            if (id != null) {
+              return _widgetBuilders['visual_formula_editor']!
+                  .build(context, this, id);
+            }
+            break;
         }
         return const Center(child: CircularProgressIndicator());
       },

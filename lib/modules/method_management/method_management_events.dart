@@ -1,3 +1,6 @@
+// FILE: lib/modules/method_management/method_management_events.dart
+// (English comments for code clarity)
+
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
 
@@ -31,4 +34,11 @@ class DeletePatternMethodEvent {
   final EntityId methodId;
 
   DeletePatternMethodEvent(this.methodId);
+}
+
+/// ADDED: Event fired to show the new visual formula editor page.
+class ShowVisualFormulaEditorEvent {
+  final EntityId methodId;
+
+  ShowVisualFormulaEditorEvent(this.methodId);
 }

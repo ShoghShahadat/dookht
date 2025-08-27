@@ -1,10 +1,13 @@
+// FILE: lib/modules/ui/view_manager/view_manager_system.dart
+// (English comments for code clarity)
+
 import 'package:collection/collection.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/method_management/method_management_events.dart';
 import '../../customers/customer_events.dart';
 import 'view_manager_component.dart';
 
-/// A system that  tose1 manages the current visible view of the application.
+/// A system that manages the current visible view of the application.
 class ViewManagerSystem extends System {
   @override
   void onAddedToWorld(NexusWorld world) {
@@ -16,18 +19,22 @@ class ViewManagerSystem extends System {
         _changeView(AppView.calculationPage, customerId: event.customerId));
     listen<ShowMethodManagementEvent>(
         (_) => _changeView(AppView.methodManagement));
-    // Listen for the event to show the edit method page.
     listen<ShowEditMethodEvent>(
         (event) => _changeView(AppView.editMethod, methodId: event.methodId));
+    // ADDED: Listen for the event to show the visual editor
+    listen<ShowVisualFormulaEditorEvent>((event) =>
+        _changeView(AppView.visualFormulaEditor, methodId: event.methodId));
   }
 
   void _changeView(AppView view, {EntityId? customerId, EntityId? methodId}) {
     final viewManager = _getViewManagerEntity();
     if (viewManager != null) {
+      // Get current state to preserve other active IDs if they are not being changed
+      final currentState = viewManager.get<ViewStateComponent>();
       viewManager.add(ViewStateComponent(
         currentView: view,
-        activeCustomerId: customerId,
-        activeMethodId: methodId,
+        activeCustomerId: customerId ?? currentState?.activeCustomerId,
+        activeMethodId: methodId ?? currentState?.activeMethodId,
       ));
     }
   }

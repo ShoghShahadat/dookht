@@ -1,9 +1,5 @@
 // FILE: lib/main.dart
 // (English comments for code clarity)
-// FINAL, ARCHITECTURALLY CORRECT IMPLEMENTATION v16
-// FIX: Moved entity reconstruction from the main isolate's worldProvider
-// into a dedicated system running on the logic isolate to prevent
-// components from being dropped during the isolate transfer.
 
 import 'dart:convert';
 import 'dart:ui';
@@ -14,6 +10,7 @@ import 'package:nexus/nexus.dart' hide ThemeProviderService;
 import 'package:tailor_assistant/modules/method_management/method_management_module.dart';
 import 'package:tailor_assistant/modules/pattern_methods/pattern_methods_module.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/visual_formula_editor_module.dart';
 
 import 'core/component_registry.dart';
 import 'modules/calculations/calculation_module.dart';
@@ -120,15 +117,11 @@ class TailorAssistantApp extends StatelessWidget {
         worldProvider: () {
           final world = NexusWorld();
 
-          // **THE FIX: Pass the raw data to the logic isolate via a BlackboardComponent.**
-          // The actual entity reconstruction will happen in a system on the other side.
           final bootstrapEntity = Entity()
             ..add(TagsComponent({'bootstrap_data'}))
             ..add(BlackboardComponent({'persistedRawData': persistedRawData}));
           world.addEntity(bootstrapEntity);
 
-          // Load all modules. The CustomerListModule now starts with an empty list,
-          // as the CustomerSystem will populate it after reconstruction.
           world.loadModule(InputModule());
           world.loadModule(AppLifecycleModule());
           world.loadModule(ThemingModule());
@@ -141,6 +134,8 @@ class TailorAssistantApp extends StatelessWidget {
           world.loadModule(CalculationModule());
           world.loadModule(PatternMethodsModule());
           world.loadModule(MethodManagementModule());
+          // ADDED: Load the new module for the visual editor
+          world.loadModule(VisualFormulaEditorModule());
           return world;
         },
       ),

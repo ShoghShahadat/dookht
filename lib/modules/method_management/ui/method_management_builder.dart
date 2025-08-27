@@ -1,3 +1,6 @@
+// FILE: lib/modules/method_management/ui/method_management_builder.dart
+// (English comments for code clarity)
+
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
@@ -125,6 +128,16 @@ class _MethodManagementWidget extends StatelessWidget {
                           fontSize: 20,
                           fontWeight: FontWeight.bold),
                     ),
+                  ),
+                  // ADDED: Visual Formula Editor Button
+                  IconButton(
+                    icon: Icon(Icons.schema_outlined,
+                        color: textColor.withOpacity(0.8)),
+                    onPressed: () {
+                      renderingSystem.manager
+                          ?.send(ShowVisualFormulaEditorEvent(methodId));
+                    },
+                    tooltip: 'طراحی فرمول گرافیکی',
                   ),
                   IconButton(
                     icon: Icon(Icons.edit_outlined,

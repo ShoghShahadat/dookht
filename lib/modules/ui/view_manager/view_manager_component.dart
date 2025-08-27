@@ -1,3 +1,6 @@
+// FILE: lib/modules/ui/view_manager/view_manager_component.dart
+// (English comments for code clarity)
+
 import 'package:nexus/nexus.dart';
 
 /// An enum representing the different primary views in the application.
@@ -6,14 +9,14 @@ enum AppView {
   addCustomerForm,
   calculationPage,
   methodManagement,
-  editMethod, // The new view for editing a specific method
+  editMethod,
+  visualFormulaEditor, // ADDED: The new view for the visual editor
 }
 
 /// A serializable component that holds the current view state of the application.
 class ViewStateComponent extends Component with SerializableComponent {
   final AppView currentView;
   final EntityId? activeCustomerId;
-  // Store the ID of the method being edited.
   final EntityId? activeMethodId;
 
   ViewStateComponent({
