@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:nexus/nexus.dart';
 
@@ -104,6 +105,9 @@ class NexusSingleThreadManager implements NexusManager {
 
   @override
   void send(dynamic message) {
+    // DEBUG LOG ADDED
+    debugPrint(
+        "📬 [NexusManager] Sending event to EventBus: ${message.runtimeType}");
     _world?.eventBus.fire(message);
   }
 

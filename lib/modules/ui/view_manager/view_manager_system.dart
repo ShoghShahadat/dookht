@@ -1,4 +1,5 @@
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/method_management/method_management_events.dart';
 import '../../customers/customer_events.dart';
@@ -9,6 +10,7 @@ class ViewManagerSystem extends System {
   @override
   void onAddedToWorld(NexusWorld world) {
     super.onAddedToWorld(world);
+    debugPrint("👂 [ViewManagerSystem] Now listening for navigation events.");
     listen<ShowCustomerListEvent>((_) => _changeView(AppView.customerList));
     listen<ShowAddCustomerFormEvent>(
         (_) => _changeView(AppView.addCustomerForm));
@@ -22,6 +24,7 @@ class ViewManagerSystem extends System {
   }
 
   void _changeView(AppView view, {EntityId? customerId, EntityId? methodId}) {
+    debugPrint("🔄 [ViewManagerSystem] Changing view to: $view");
     final viewManager = _getViewManagerEntity();
     if (viewManager != null) {
       viewManager.add(ViewStateComponent(
@@ -29,6 +32,8 @@ class ViewManagerSystem extends System {
         activeCustomerId: customerId,
         activeMethodId: methodId,
       ));
+    } else {
+      debugPrint("  - ❌ ERROR: Could not find 'view_manager' entity!");
     }
   }
 

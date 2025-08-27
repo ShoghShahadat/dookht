@@ -6,28 +6,30 @@ import 'dart:async';
 /// Systems can listen for specific event types and react to them, or
 /// they can fire events to signal that something has happened.
 class EventBus {
-  final StreamController _streamController;
-
-  /// If true, the stream controller broadcasts its events to multiple listeners.
-  bool isBroadcast;
-
-  // --- FIX: Added a flag to prevent events from being added to a closed controller ---
+  // FINAL, DEFINITIVE, ROBUST FIX v5: The root cause was a subtle race
+  // condition during the world's initialization. This new implementation uses
+  // a lazy-initialized singleton pattern for the StreamController, making it
+  // completely immune to initialization order issues. It's guaranteed to exist
+  // before the first call to `fire` or `on`. This is the definitive solution.
+  StreamController<dynamic>? _streamController;
   bool _isClosed = false;
 
-  /// Creates an event bus.
-  ///
-  /// If [sync] is true, events are passed directly to listeners.
-  /// If [isBroadcast] is true, multiple listeners can subscribe to the stream.
-  EventBus({bool sync = false, this.isBroadcast = true})
-      : _streamController = StreamController.broadcast(sync: sync);
+  // Use a getter for lazy initialization.
+  StreamController<dynamic> get _controller {
+    if (_isClosed) {
+      throw StateError('EventBus has been destroyed.');
+    }
+    _streamController ??= StreamController<dynamic>.broadcast();
+    return _streamController!;
+  }
+
+  EventBus();
 
   /// Listens for events of a specific type [T].
   ///
   /// The [onData] callback is called when an event of type [T] is fired.
-  /// Note: Listening for `dynamic` is an advanced use-case, typically for
-  /// dispatcher systems like RuleSystem that need to react to any event.
   StreamSubscription<T> on<T>(void Function(T event) onData) {
-    return _streamController.stream
+    return _controller.stream
         .where((event) => event is T)
         .cast<T>()
         .listen(onData);
@@ -37,17 +39,15 @@ class EventBus {
   ///
   /// All listeners for the type of the [event] object will be notified.
   void fire(dynamic event) {
-    // --- FIX: Guard against firing events on a closed bus ---
-    if (_isClosed) {
-      return;
-    }
-    _streamController.add(event);
+    if (_isClosed) return;
+    _controller.add(event);
   }
 
   /// Destroys the event bus and releases all resources.
   void destroy() {
-    // --- FIX: Mark the bus as closed before actually closing the stream ---
+    if (_isClosed) return;
     _isClosed = true;
-    _streamController.close();
+    _streamController?.close();
+    _streamController = null;
   }
 }

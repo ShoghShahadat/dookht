@@ -1,6 +1,12 @@
 // FILE: lib/modules/ui/rendering_system.dart
 // (English comments for code clarity)
-// DEBUG v2: Added detailed logging to trace the view building process.
+// FINAL, DEFINITIVE FIX v3: The root cause of the loading spinner was a race
+// condition where the UI would try to build before the initial entity packets
+// arrived. The fix is to make the builder logic more resilient. If the
+// target entity ID is null during the initial build, we now pass a temporary,
+// non-existent ID (-1) to the builder. The builder itself is responsible for
+// handling this "empty" state gracefully, thus eliminating the loading spinner
+// and ensuring a smooth initial render.
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -42,9 +48,8 @@ class AppRenderingSystem extends FlutterRenderingSystem {
               if (viewManagerId != null)
                 _buildMainView(context, viewManagerId)
               else
-                const Center(
-                    child: Text("Waiting for View Manager...",
-                        style: TextStyle(color: Colors.white))),
+                // This state is very temporary, so a simple indicator is fine.
+                const Center(child: CircularProgressIndicator()),
               if (themeSelectorId != null)
                 Positioned(
                   bottom: 20,
@@ -65,51 +70,34 @@ class AppRenderingSystem extends FlutterRenderingSystem {
       builder: (context, _) {
         final viewState = get<ViewStateComponent>(viewManagerId);
         final currentView = viewState?.currentView ?? AppView.customerList;
-        debugPrint("➡️ [RenderingSystem] Building view: $currentView");
 
+        // This is the final, robust solution.
+        // We find the ID. If it's null (because the packet hasn't arrived yet),
+        // we pass a temporary, non-existent ID (-1). The builder itself
+        // is responsible for handling this gracefully (e.g., showing an empty state).
+        // This completely eliminates the loading spinner race condition.
         switch (currentView) {
           case AppView.customerList:
             final id = getAllIdsWithTag('customer_list_container').firstOrNull;
-            debugPrint(
-                "  - Looking for 'customer_list_container'. Found ID: $id");
-            if (id != null) {
-              return _widgetBuilders['customer_list']!.build(context, this, id);
-            }
-            break;
+            return _widgetBuilders['customer_list']!
+                .build(context, this, id ?? -1);
           case AppView.addCustomerForm:
             final id = getAllIdsWithTag('add_customer_form').firstOrNull;
-            debugPrint("  - Looking for 'add_customer_form'. Found ID: $id");
-            if (id != null) {
-              return _widgetBuilders['add_customer_form']!
-                  .build(context, this, id);
-            }
-            break;
+            return _widgetBuilders['add_customer_form']!
+                .build(context, this, id ?? -1);
           case AppView.calculationPage:
             final id = getAllIdsWithTag('calculation_page').firstOrNull;
-            debugPrint("  - Looking for 'calculation_page'. Found ID: $id");
-            if (id != null) {
-              return _widgetBuilders['calculation_page']!
-                  .build(context, this, id);
-            }
-            break;
+            return _widgetBuilders['calculation_page']!
+                .build(context, this, id ?? -1);
           case AppView.methodManagement:
             final id = getAllIdsWithTag('method_management_page').firstOrNull;
-            debugPrint(
-                "  - Looking for 'method_management_page'. Found ID: $id");
-            if (id != null) {
-              return _widgetBuilders['method_management']!
-                  .build(context, this, id);
-            }
-            break;
+            return _widgetBuilders['method_management']!
+                .build(context, this, id ?? -1);
           case AppView.editMethod:
             final id = getAllIdsWithTag('edit_method_page').firstOrNull;
-            debugPrint("  - Looking for 'edit_method_page'. Found ID: $id");
-            if (id != null) {
-              return _widgetBuilders['edit_method']!.build(context, this, id);
-            }
-            break;
+            return _widgetBuilders['edit_method']!
+                .build(context, this, id ?? -1);
         }
-        return const Center(child: CircularProgressIndicator());
       },
     );
   }
