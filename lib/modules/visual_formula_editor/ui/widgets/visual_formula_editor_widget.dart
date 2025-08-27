@@ -1,6 +1,7 @@
 // FILE: lib/modules/visual_formula_editor/ui/widgets/visual_formula_editor_widget.dart
 // (English comments for code clarity)
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/customers/customer_events.dart';
@@ -30,6 +31,8 @@ class VisualFormulaEditorWidget extends StatefulWidget {
 }
 
 class _VisualFormulaEditorWidgetState extends State<VisualFormulaEditorWidget> {
+  Offset? _panStart;
+
   Color _getTextColor() {
     final rs = widget.renderingSystem;
     final themeManagerId = rs.getAllIdsWithTag('theme_manager').firstOrNull;
@@ -70,23 +73,68 @@ class _VisualFormulaEditorWidgetState extends State<VisualFormulaEditorWidget> {
           final canvasState =
               rs.get<EditorCanvasComponent>(widget.editorEntityId);
 
+          // Convert canvas coordinates to screen coordinates for the menu
+          Offset? contextMenuScreenPos;
+          if (canvasState?.contextMenuX != null &&
+              canvasState?.contextMenuY != null &&
+              canvasState?.zoom != null) {
+            contextMenuScreenPos = Offset(
+                canvasState!.contextMenuX! * canvasState.zoom +
+                    canvasState.panX,
+                canvasState.contextMenuY! * canvasState.zoom +
+                    canvasState.panY);
+          }
+
           return Stack(
             children: [
               GestureDetector(
-                onPanStart: (details) {
-                  rs.manager?.send(CanvasPointerDownEvent(
-                    localX: details.localPosition.dx,
-                    localY: details.localPosition.dy,
-                  ));
+                onTapUp: (details) {
+                  final canvasState =
+                      rs.get<EditorCanvasComponent>(widget.editorEntityId);
+                  if (canvasState == null) return;
+                  final canvasX =
+                      (details.localPosition.dx - canvasState.panX) /
+                          canvasState.zoom;
+                  final canvasY =
+                      (details.localPosition.dy - canvasState.panY) /
+                          canvasState.zoom;
+                  rs.manager?.send(
+                      CanvasPointerUpEvent(localX: canvasX, localY: canvasY));
                 },
-                onPanUpdate: (details) {
-                  rs.manager?.send(CanvasPointerMoveEvent(
-                    deltaX: details.delta.dx,
-                    deltaY: details.delta.dy,
-                  ));
+                onLongPressStart: (details) {
+                  final canvasState =
+                      rs.get<EditorCanvasComponent>(widget.editorEntityId);
+                  if (canvasState == null) return;
+                  final canvasX =
+                      (details.localPosition.dx - canvasState.panX) /
+                          canvasState.zoom;
+                  final canvasY =
+                      (details.localPosition.dy - canvasState.panY) /
+                          canvasState.zoom;
+                  rs.manager?.send(ShowNodeContextMenuEvent(
+                      nodeId: -1,
+                      x: canvasX,
+                      y: canvasY)); // ID is found in system
                 },
-                onPanEnd: (details) {
-                  rs.manager?.send(CanvasPointerUpEvent());
+                onScaleStart: (details) {
+                  _panStart = details.localFocalPoint;
+                },
+                onScaleUpdate: (details) {
+                  if (details.scale != 1.0) {
+                    rs.manager?.send(CanvasZoomEvent(
+                      zoomDelta: details.scale,
+                      localX: details.localFocalPoint.dx,
+                      localY: details.localFocalPoint.dy,
+                    ));
+                  } else if (_panStart != null) {
+                    final delta = details.localFocalPoint - _panStart!;
+                    rs.manager?.send(
+                        CanvasPanEvent(deltaX: delta.dx, deltaY: delta.dy));
+                    _panStart = details.localFocalPoint;
+                  }
+                },
+                onScaleEnd: (details) {
+                  _panStart = null;
                 },
                 child: CustomPaint(
                   painter: FormulaCanvasPainter(
@@ -105,9 +153,53 @@ class _VisualFormulaEditorWidgetState extends State<VisualFormulaEditorWidget> {
                 canvasState: canvasState,
                 textColor: textColor,
               ),
+              if (canvasState?.contextMenuNodeId != null &&
+                  contextMenuScreenPos != null)
+                _buildContextMenu(rs, canvasState!, contextMenuScreenPos),
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildContextMenu(FlutterRenderingSystem rs,
+      EditorCanvasComponent canvasState, Offset position) {
+    return Positioned(
+      left: position.dx,
+      top: position.dy,
+      child: Material(
+        color: Colors.transparent,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade800.withOpacity(0.8),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.delete_outline,
+                        color: Colors.redAccent),
+                    title: const Text('حذف',
+                        style: TextStyle(color: Colors.white)),
+                    dense: true,
+                    onTap: () {
+                      rs.manager?.send(
+                          DeleteNodeEvent(canvasState.contextMenuNodeId!));
+                      rs.manager?.send(HideContextMenuEvent());
+                    },
+                  ),
+                  // Add other options like Edit, Duplicate here
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

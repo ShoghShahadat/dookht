@@ -2,13 +2,13 @@
 // (English comments for code clarity)
 
 import 'dart:math';
+import 'dart:ui';
 import 'package:collection/collection.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/editor_events.dart';
 
-const double portRadius = 8.0;
-const double portMargin = 16.0;
+const double portRadius = 10.0; // Increased for easier tapping
 
 /// Handles all interaction logic within the visual formula editor.
 class VisualEditorSystem extends System {
@@ -20,6 +20,12 @@ class VisualEditorSystem extends System {
     listen<CanvasPointerUpEvent>(_onPointerUp);
     listen<AddNodeEvent>(_onAddNode);
     listen<UpdatePreviewInputEvent>(_onUpdatePreviewInput);
+    listen<ShowNodeContextMenuEvent>(_onShowContextMenu);
+    listen<HideContextMenuEvent>(_onHideContextMenu);
+    listen<DeleteNodeEvent>(_onDeleteNode);
+    listen<DeleteConnectionEvent>(_onDeleteConnection);
+    listen<CanvasPanEvent>(_onPan);
+    listen<CanvasZoomEvent>(_onZoom);
   }
 
   Entity? _getCanvasEntity() {
@@ -27,8 +33,103 @@ class VisualEditorSystem extends System {
         .firstWhereOrNull((e) => e.has<EditorCanvasComponent>());
   }
 
+  // --- Event Handlers ---
+
+  void _onPan(CanvasPanEvent event) {
+    final canvasEntity = _getCanvasEntity();
+    if (canvasEntity == null) return;
+    final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
+    canvasEntity.add(EditorCanvasComponent(
+      panX: canvasState.panX + event.deltaX,
+      panY: canvasState.panY + event.deltaY,
+      zoom: canvasState.zoom,
+      previewInputValues: canvasState.previewInputValues,
+    ));
+  }
+
+  void _onZoom(CanvasZoomEvent event) {
+    final canvasEntity = _getCanvasEntity();
+    if (canvasEntity == null) return;
+    final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
+
+    final newZoom = (canvasState.zoom * event.zoomDelta).clamp(0.2, 3.0);
+
+    // Adjust pan to zoom towards the pointer location
+    final panX = event.localX -
+        (event.localX - canvasState.panX) * (newZoom / canvasState.zoom);
+    final panY = event.localY -
+        (event.localY - canvasState.panY) * (newZoom / canvasState.zoom);
+
+    canvasEntity.add(EditorCanvasComponent(
+      panX: panX,
+      panY: panY,
+      zoom: newZoom,
+      previewInputValues: canvasState.previewInputValues,
+    ));
+  }
+
+  void _onDeleteNode(DeleteNodeEvent event) {
+    // Delete all connections attached to this node
+    final connections = world.entities.values.where((e) {
+      final c = e.get<ConnectionComponent>();
+      return c != null &&
+          (c.fromNodeId == event.nodeId || c.toNodeId == event.nodeId);
+    }).toList();
+
+    for (final conn in connections) {
+      world.removeEntity(conn.id);
+    }
+    // Delete the node itself
+    world.removeEntity(event.nodeId);
+  }
+
+  void _onDeleteConnection(DeleteConnectionEvent event) {
+    world.removeEntity(event.connectionId);
+  }
+
+  void _onShowContextMenu(ShowNodeContextMenuEvent event) {
+    final canvasEntity = _getCanvasEntity();
+    if (canvasEntity == null) return;
+    final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
+    canvasEntity.add(EditorCanvasComponent(
+      contextMenuNodeId: event.nodeId,
+      contextMenuX: event.x,
+      contextMenuY: event.y,
+      panX: canvasState.panX,
+      panY: canvasState.panY,
+      zoom: canvasState.zoom,
+      previewInputValues: canvasState.previewInputValues,
+    ));
+  }
+
+  void _onHideContextMenu(HideContextMenuEvent event) {
+    final canvasEntity = _getCanvasEntity();
+    if (canvasEntity == null) return;
+    final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
+    canvasEntity.add(EditorCanvasComponent(
+      contextMenuNodeId: null,
+      contextMenuX: null,
+      contextMenuY: null,
+      panX: canvasState.panX,
+      panY: canvasState.panY,
+      zoom: canvasState.zoom,
+      previewInputValues: canvasState.previewInputValues,
+    ));
+  }
+
+  // ... other event handlers are mostly the same but need to preserve state ...
+  // (Full code for other handlers is provided for completeness)
+
   void _onAddNode(AddNodeEvent event) {
-    final newNode = _createNodeFromType(event.type);
+    final canvasEntity = _getCanvasEntity();
+    final canvasState = canvasEntity?.get<EditorCanvasComponent>();
+    // Add new nodes in the center of the current view
+    final x =
+        (canvasState != null) ? -canvasState.panX / canvasState.zoom : 100;
+    final y =
+        (canvasState != null) ? -canvasState.panY / canvasState.zoom : 100;
+
+    final newNode = _createNodeFromType(event.type, x.toDouble(), y.toDouble());
     world.addEntity(newNode);
   }
 
@@ -46,7 +147,6 @@ class VisualEditorSystem extends System {
 
     canvasEntity.add(EditorCanvasComponent(
       previewInputValues: newValues,
-      // copy other state properties
       panX: canvasState.panX,
       panY: canvasState.panY,
       zoom: canvasState.zoom,
@@ -54,10 +154,14 @@ class VisualEditorSystem extends System {
   }
 
   void _onPointerDown(CanvasPointerDownEvent event) {
-    // ... (rest of the code is unchanged from v2.0)
     final canvasEntity = _getCanvasEntity();
     if (canvasEntity == null) return;
     final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
+
+    // Hide context menu on any new press
+    if (canvasState.contextMenuNodeId != null) {
+      world.eventBus.fire(HideContextMenuEvent());
+    }
 
     final nodes =
         world.entities.values.where((e) => e.has<NodeComponent>()).toList();
@@ -66,7 +170,6 @@ class VisualEditorSystem extends System {
       final nodeComp = node.get<NodeComponent>()!;
       final pos = nodeComp.position;
 
-      // Check for port hit
       final portHit = _getPortAt(node, event.localX, event.localY);
       if (portHit != null) {
         final isOutput = nodeComp.outputs.any((p) => p.id == portHit.port.id);
@@ -77,19 +180,24 @@ class VisualEditorSystem extends System {
             connectionStartPortId: portHit.port.id,
             connectionDraftX: portHit.x,
             connectionDraftY: portHit.y,
+            panX: canvasState.panX,
+            panY: canvasState.panY,
+            zoom: canvasState.zoom,
             previewInputValues: canvasState.previewInputValues,
           ));
         }
         return;
       }
 
-      // Check for node body hit
       if (event.localX >= pos.x &&
           event.localX <= pos.x + pos.width &&
           event.localY >= pos.y &&
           event.localY <= pos.y + pos.height) {
         canvasEntity.add(EditorCanvasComponent(
           draggedEntityId: node.id,
+          panX: canvasState.panX,
+          panY: canvasState.panY,
+          zoom: canvasState.zoom,
           previewInputValues: canvasState.previewInputValues,
         ));
         return;
@@ -110,12 +218,20 @@ class VisualEditorSystem extends System {
   }
 
   void _onPointerUp(CanvasPointerUpEvent event) {
-    // ... (rest of the code is unchanged from v2.0)
     final canvasEntity = _getCanvasEntity();
     if (canvasEntity == null) return;
     final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
 
-    // Finalize connection
+    // Check for connection tap to delete
+    if (canvasState.draggedEntityId == null &&
+        canvasState.connectionStartNodeId == null) {
+      final connectionToDelete = _getConnectionAt(event.localX, event.localY);
+      if (connectionToDelete != null) {
+        world.eventBus.fire(DeleteConnectionEvent(connectionToDelete.id));
+        return;
+      }
+    }
+
     if (canvasState.connectionStartNodeId != null) {
       final nodes = world.entities.values.where((e) => e.has<NodeComponent>());
       for (final node in nodes) {
@@ -143,31 +259,25 @@ class VisualEditorSystem extends System {
       }
     }
 
-    // Reset all interaction states
     canvasEntity.add(EditorCanvasComponent(
       panX: canvasState.panX,
       panY: canvasState.panY,
       zoom: canvasState.zoom,
       previewInputValues: canvasState.previewInputValues,
-      draggedEntityId: null,
-      connectionStartNodeId: null,
-      connectionStartPortId: null,
-      connectionDraftX: null,
-      connectionDraftY: null,
     ));
   }
 
-  // Helper methods (_handleNodeDrag, _handleConnectionDraft, _getPortAt) are unchanged from v2.0...
   void _handleNodeDrag(
       EditorCanvasComponent state, CanvasPointerMoveEvent event) {
     final draggedEntity = world.entities[state.draggedEntityId!];
     if (draggedEntity == null) return;
     final nodeComp = draggedEntity.get<NodeComponent>()!;
     final pos = nodeComp.position;
+    final canvasState = _getCanvasEntity()!.get<EditorCanvasComponent>()!;
 
     final newPosition = PositionComponent(
-      x: pos.x + event.deltaX,
-      y: pos.y + event.deltaY,
+      x: pos.x + (event.deltaX / canvasState.zoom),
+      y: pos.y + (event.deltaY / canvasState.zoom),
       width: pos.width,
       height: pos.height,
     );
@@ -185,11 +295,17 @@ class VisualEditorSystem extends System {
   void _handleConnectionDraft(
       EditorCanvasComponent state, CanvasPointerMoveEvent event) {
     final canvasEntity = _getCanvasEntity()!;
+    final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
     canvasEntity.add(EditorCanvasComponent(
         connectionStartNodeId: state.connectionStartNodeId,
         connectionStartPortId: state.connectionStartPortId,
-        connectionDraftX: state.connectionDraftX! + event.deltaX,
-        connectionDraftY: state.connectionDraftY! + event.deltaY,
+        connectionDraftX:
+            state.connectionDraftX! + (event.deltaX / canvasState.zoom),
+        connectionDraftY:
+            state.connectionDraftY! + (event.deltaY / canvasState.zoom),
+        panX: state.panX,
+        panY: state.panY,
+        zoom: state.zoom,
         previewInputValues: state.previewInputValues));
   }
 
@@ -218,10 +334,45 @@ class VisualEditorSystem extends System {
     return null;
   }
 
-  Entity _createNodeFromType(NodeType type) {
+  Entity? _getConnectionAt(double hx, double hy) {
+    // A simple hit test for connections (checks midpoint)
+    final connections =
+        world.entities.values.where((e) => e.has<ConnectionComponent>());
+    for (final connEntity in connections) {
+      final conn = connEntity.get<ConnectionComponent>()!;
+      final fromNode = world.entities[conn.fromNodeId]?.get<NodeComponent>();
+      final toNode = world.entities[conn.toNodeId]?.get<NodeComponent>();
+      if (fromNode == null || toNode == null) continue;
+
+      // This is a simplified hit test. A real implementation would check distance to the curve.
+      final start = _getPortPosition(fromNode, conn.fromPortId, true);
+      final end = _getPortPosition(toNode, conn.toPortId, false);
+      if (start == null || end == null) continue;
+
+      final midX = (start.dx + end.dx) / 2;
+      final midY = (start.dy + end.dy) / 2;
+
+      if (sqrt(pow(hx - midX, 2) + pow(hy - midY, 2)) < 10.0) {
+        return connEntity;
+      }
+    }
+    return null;
+  }
+
+  Offset? _getPortPosition(NodeComponent node, String portId, bool isOutput) {
+    final pos = node.position;
+    final ports = isOutput ? node.outputs : node.inputs;
+    final index = ports.indexWhere((p) => p.id == portId);
+    if (index == -1) return null;
+
+    final x = isOutput ? pos.x + pos.width : pos.x;
+    final y = pos.y + (pos.height / (ports.length + 1)) * (index + 1);
+    return Offset(x, y);
+  }
+
+  Entity _createNodeFromType(NodeType type, double x, double y) {
     final random = Random();
-    final position = PositionComponent(
-        x: 100 + random.nextDouble() * 200, y: 100 + random.nextDouble() * 200);
+    final position = PositionComponent(x: x, y: y);
     NodeComponent nodeComp;
 
     switch (type) {

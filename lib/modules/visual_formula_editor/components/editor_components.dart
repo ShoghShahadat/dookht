@@ -6,7 +6,7 @@ import 'package:nexus/nexus.dart';
 /// Defines the type of a node in the visual editor.
 enum NodeType {
   input,
-  constant, // ADDED: For constant number values
+  constant,
   operator,
   condition,
   output,
@@ -126,8 +126,12 @@ class EditorCanvasComponent extends Component with SerializableComponent {
   final double? connectionDraftX;
   final double? connectionDraftY;
 
-  // Holds the user-provided values for the preview
   final Map<String, double> previewInputValues;
+
+  // State for the context menu
+  final EntityId? contextMenuNodeId;
+  final double? contextMenuX;
+  final double? contextMenuY;
 
   EditorCanvasComponent({
     this.panX = 0.0,
@@ -139,6 +143,9 @@ class EditorCanvasComponent extends Component with SerializableComponent {
     this.connectionDraftX,
     this.connectionDraftY,
     this.previewInputValues = const {},
+    this.contextMenuNodeId,
+    this.contextMenuX,
+    this.contextMenuY,
   });
 
   factory EditorCanvasComponent.fromJson(Map<String, dynamic> json) {
@@ -154,6 +161,9 @@ class EditorCanvasComponent extends Component with SerializableComponent {
       previewInputValues: (json['previewInputValues'] as Map).map(
         (key, value) => MapEntry(key as String, (value as num).toDouble()),
       ),
+      contextMenuNodeId: json['contextMenuNodeId'] as EntityId?,
+      contextMenuX: (json['contextMenuX'] as num?)?.toDouble(),
+      contextMenuY: (json['contextMenuY'] as num?)?.toDouble(),
     );
   }
 
@@ -168,6 +178,9 @@ class EditorCanvasComponent extends Component with SerializableComponent {
         'connectionDraftX': connectionDraftX,
         'connectionDraftY': connectionDraftY,
         'previewInputValues': previewInputValues,
+        'contextMenuNodeId': contextMenuNodeId,
+        'contextMenuX': contextMenuX,
+        'contextMenuY': contextMenuY,
       };
 
   @override
@@ -181,6 +194,9 @@ class EditorCanvasComponent extends Component with SerializableComponent {
         connectionDraftX,
         connectionDraftY,
         previewInputValues,
+        contextMenuNodeId,
+        contextMenuX,
+        contextMenuY,
       ];
 }
 

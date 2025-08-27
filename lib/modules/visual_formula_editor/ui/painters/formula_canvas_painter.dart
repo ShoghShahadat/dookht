@@ -22,9 +22,17 @@ class FormulaCanvasPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.save();
+
+    // Apply Pan & Zoom transformations
+    if (canvasState != null) {
+      canvas.translate(canvasState!.panX, canvasState!.panY);
+      canvas.scale(canvasState!.zoom);
+    }
+
     final backgroundPaint = Paint()..color = Colors.black.withOpacity(0.2);
-    canvas.drawRect(
-        Rect.fromLTWH(0, 0, size.width, size.height), backgroundPaint);
+    // Draw a large background rect to ensure it covers the whole area when panned
+    canvas.drawRect(Rect.fromLTWH(-5000, -5000, 10000, 10000), backgroundPaint);
 
     // Draw connections first so they appear behind nodes
     for (final connectionId in connectionIds) {
@@ -45,6 +53,8 @@ class FormulaCanvasPainter extends CustomPainter {
         _drawNode(canvas, nodeId, nodeComp, nodeState);
       }
     }
+
+    canvas.restore();
   }
 
   void _drawNode(Canvas canvas, EntityId nodeId, NodeComponent node,
@@ -182,8 +192,6 @@ class FormulaCanvasPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant FormulaCanvasPainter oldDelegate) {
-    // For performance, we should do a proper comparison, but for now,
-    // always repainting is fine as the data changes frequently.
     return true;
   }
 }
