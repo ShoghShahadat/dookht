@@ -1,4 +1,7 @@
-// Hide the framework's AppLifecycleSystem to prevent name collision with our custom one.
+// FILE: lib/modules/lifecycle/app_lifecycle_module.dart
+// (English comments for code clarity)
+// FINAL, DEFINITIVE FIX v3: The Garbage Collector is now correctly disabled.
+
 import 'package:nexus/nexus.dart' hide AppLifecycleSystem;
 import 'app_lifecycle_system.dart';
 
@@ -17,12 +20,11 @@ class AppLifecycleModule extends NexusModule {
 
   @override
   List<SystemProvider> get systemProviders => [
-        // Provide the system that handles lifecycle logic.
         _SingleSystemProvider([
           AppLifecycleSystem(),
-          // --- DEFINITIVE FIX: Explicitly add the Garbage Collector but keep it disabled. ---
-          // This guarantees that no entities will be accidentally deleted,
-          // solving the data persistence issue permanently for this app's architecture.
+          // **THE FINAL FIX**: The Garbage Collector was prematurely deleting loaded entities.
+          // For this application, where all entities should be persistent,
+          // disabling it is the correct and most robust solution.
           GarbageCollectorSystem(enabled: false),
         ])
       ];

@@ -1,3 +1,7 @@
+// FILE: lib/modules/customers/customer_list_module.dart
+// (English comments for code clarity)
+// This module now accepts pre-loaded data to populate its initial state.
+
 import 'package:nexus/nexus.dart';
 import 'customer_events.dart';
 import 'customer_system.dart';
@@ -12,6 +16,10 @@ class _SingleSystemProvider implements SystemProvider {
 
 /// A Nexus module that sets up the entities and systems for the customer feature.
 class CustomerListModule extends NexusModule {
+  final List<Entity> initialCustomers;
+
+  CustomerListModule({required this.initialCustomers});
+
   @override
   void onLoad(NexusWorld world) {
     // --- Add Customer Button Entity ---
@@ -33,10 +41,16 @@ class CustomerListModule extends NexusModule {
     world.addEntity(methodManagementButton);
 
     // --- Customer List Container Entity ---
+    // It is now populated with the IDs of the pre-loaded customer entities.
+    final customerIds = initialCustomers
+        .where((e) => e.get<TagsComponent>()?.hasTag('customer') ?? false)
+        .map((e) => e.id)
+        .toList();
+
     final customerListContainer = Entity()
       ..add(TagsComponent({'customer_list_container'}))
       ..add(LifecyclePolicyComponent(isPersistent: true))
-      ..add(ChildrenComponent([]));
+      ..add(ChildrenComponent(customerIds)); // Populate with initial data.
     world.addEntity(customerListContainer);
   }
 
@@ -45,7 +59,6 @@ class CustomerListModule extends NexusModule {
 
   @override
   List<SystemProvider> get systemProviders => [
-        // Provide the system that handles customer logic.
         _SingleSystemProvider([CustomerSystem()])
       ];
 }

@@ -1,4 +1,4 @@
-import 'package:tailor_assistant/modules/modules/calculations/calculation_system.dart';
+import 'package:tailor_assistant/modules/calculations/calculation_system.dart';
 import 'package:nexus/nexus.dart';
 
 // A helper class to satisfy the SystemProvider interface.

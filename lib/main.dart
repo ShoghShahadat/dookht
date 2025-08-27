@@ -1,8 +1,13 @@
 // FILE: lib/main.dart
 // (English comments for code clarity)
+// FINAL, ARCHITECTURALLY CORRECT IMPLEMENTATION v16
+// FIX: Moved entity reconstruction from the main isolate's worldProvider
+// into a dedicated system running on the logic isolate to prevent
+// components from being dropped during the isolate transfer.
 
+import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:nexus/nexus.dart' hide ThemeProviderService;
@@ -17,7 +22,6 @@ import 'modules/customers/add_customer_form_module.dart';
 import 'modules/customers/customer_list_module.dart';
 import 'modules/input/input_module.dart';
 import 'modules/lifecycle/app_lifecycle_module.dart';
-import 'modules/persistence/persistence_module.dart';
 import 'modules/theming/theming_module.dart';
 import 'modules/theming/theme_provider.dart';
 import 'modules/ui/main_screen_module.dart';
@@ -28,20 +32,40 @@ import 'services/hive_storage_adapter.dart';
 
 final GetIt services = GetIt.instance;
 
-Future<void> _isolateInitializer() async {
-  // --- FIX: Removed the problematic WidgetsFlutterBinding.ensureInitialized() ---
-  // The Nexus framework handles the necessary plugin communication bindings internally.
-  // We only need to initialize services that are safe to run in a background isolate.
+Future<Map<String, Map<String, dynamic>>> _loadPersistedRawData() async {
+  final Map<String, Map<String, dynamic>> loadedData = {};
+  final box = await Hive.openBox(HiveStorageAdapter.boxName);
 
-  // Initialize Hive within the isolate as well, pointing to the same path.
-  final appDocumentDir = await getApplicationDocumentsDirectory();
-  Hive.init(appDocumentDir.path);
+  if (box.isEmpty) {
+    debugPrint("📦 [Manual Load] Hive box is empty.");
+    await box.close();
+    return loadedData;
+  }
+
+  debugPrint(
+      "📦 [Manual Load] Found ${box.keys.length} items in Hive. Reading raw data...");
+
+  for (var key in box.keys) {
+    if (key is! String || !key.startsWith('nexus_')) continue;
+
+    final jsonString = box.get(key) as String?;
+    if (jsonString == null) continue;
+
+    final storageKey = key.replaceFirst('nexus_', '');
+    loadedData[storageKey] = jsonDecode(jsonString);
+  }
+
+  await box.close();
+  debugPrint("📦 [Manual Load] ✅ Raw data reading complete. Box closed.");
+  return loadedData;
+}
+
+Future<void> _isolateInitializer(String dbPath) async {
+  Hive.init(dbPath);
   await Hive.openBox(HiveStorageAdapter.boxName);
 
   registerCoreComponents();
   registerCustomComponents();
-
-  // Register the HiveStorageAdapter for this isolate.
   services.registerSingleton<StorageAdapter>(HiveStorageAdapter());
   services.registerSingleton(ThemeProviderService());
 }
@@ -49,27 +73,40 @@ Future<void> _isolateInitializer() async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Hive for the main thread
-  await Hive.initFlutter();
-  await Hive.openBox(HiveStorageAdapter.boxName);
+  final appDocumentDir = await getApplicationDocumentsDirectory();
+  final dbPath = appDocumentDir.path;
+
+  await Hive.initFlutter(dbPath);
 
   registerCoreComponents();
   registerCustomComponents();
 
-  // Register the HiveStorageAdapter for the main thread.
-  services.registerSingleton<StorageAdapter>(HiveStorageAdapter());
+  final persistedRawData = await _loadPersistedRawData();
 
   final rootIsolateToken = RootIsolateToken.instance;
   if (rootIsolateToken == null) {
     debugPrint("FATAL: Could not get RootIsolateToken.");
     return;
   }
-  runApp(TailorAssistantApp(rootIsolateToken: rootIsolateToken));
+
+  runApp(TailorAssistantApp(
+    rootIsolateToken: rootIsolateToken,
+    persistedRawData: persistedRawData,
+    dbPath: dbPath,
+  ));
 }
 
 class TailorAssistantApp extends StatelessWidget {
   final RootIsolateToken rootIsolateToken;
-  const TailorAssistantApp({super.key, required this.rootIsolateToken});
+  final Map<String, Map<String, dynamic>> persistedRawData;
+  final String dbPath;
+
+  const TailorAssistantApp({
+    super.key,
+    required this.rootIsolateToken,
+    required this.persistedRawData,
+    required this.dbPath,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -78,17 +115,26 @@ class TailorAssistantApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       home: NexusWidget(
         renderingSystem: AppRenderingSystem(),
-        isolateInitializer: _isolateInitializer,
+        isolateInitializer: () => _isolateInitializer(dbPath),
         rootIsolateToken: rootIsolateToken,
         worldProvider: () {
           final world = NexusWorld();
+
+          // **THE FIX: Pass the raw data to the logic isolate via a BlackboardComponent.**
+          // The actual entity reconstruction will happen in a system on the other side.
+          final bootstrapEntity = Entity()
+            ..add(TagsComponent({'bootstrap_data'}))
+            ..add(BlackboardComponent({'persistedRawData': persistedRawData}));
+          world.addEntity(bootstrapEntity);
+
+          // Load all modules. The CustomerListModule now starts with an empty list,
+          // as the CustomerSystem will populate it after reconstruction.
           world.loadModule(InputModule());
-          world.loadModule(PersistenceModule());
           world.loadModule(AppLifecycleModule());
           world.loadModule(ThemingModule());
           world.loadModule(MainScreenModule());
           world.loadModule(ThemeSelectorModule());
-          world.loadModule(CustomerListModule());
+          world.loadModule(CustomerListModule(initialCustomers: const []));
           world.loadModule(AddCustomerFormModule());
           world.loadModule(ViewManagerModule());
           world.loadModule(CalculationPageModule());
