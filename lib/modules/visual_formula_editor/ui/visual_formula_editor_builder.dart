@@ -1,5 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/ui/visual_formula_editor_builder.dart
 // (English comments for code clarity)
+// FIX v4.1: Correctly differentiate between EntityId and NodeComponent instance.
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -16,7 +17,6 @@ class VisualFormulaEditorBuilder implements IWidgetBuilder {
   @override
   Widget build(
       BuildContext context, FlutterRenderingSystem rs, EntityId entityId) {
-    // ... (unchanged from v3.0)
     final viewManagerId = rs.getAllIdsWithTag('view_manager').firstOrNull;
     if (viewManagerId == null) return const SizedBox.shrink();
 
@@ -36,7 +36,6 @@ class VisualFormulaEditorBuilder implements IWidgetBuilder {
 }
 
 class _VisualFormulaEditorWidget extends StatefulWidget {
-  // ... (unchanged from v3.0)
   final FlutterRenderingSystem renderingSystem;
   final EntityId methodId;
   final EntityId editorEntityId;
@@ -53,7 +52,6 @@ class _VisualFormulaEditorWidget extends StatefulWidget {
 
 class _VisualFormulaEditorWidgetState
     extends State<_VisualFormulaEditorWidget> {
-  // ... (unchanged from v3.0)
   Color _getTextColor() {
     final rs = widget.renderingSystem;
     final themeManagerId = rs.getAllIdsWithTag('theme_manager').firstOrNull;
@@ -122,7 +120,6 @@ class _VisualFormulaEditorWidgetState
                   child: Container(),
                 ),
               ),
-              // ADDED: Toolbar and Preview Panel
               _buildToolbar(rs),
               _buildPreviewPanel(rs, nodeIds, canvasState, textColor),
             ],
@@ -176,13 +173,12 @@ class _VisualFormulaEditorWidgetState
 
   Widget _buildPreviewPanel(FlutterRenderingSystem rs, List<EntityId> nodeIds,
       EditorCanvasComponent? canvasState, Color textColor) {
-    final inputNodes = nodeIds
-        .map((id) => rs.get<NodeComponent>(id))
-        .where((n) => n != null && n.type == NodeType.input)
+    // FIX: Iterate over IDs to keep access to the EntityId
+    final inputNodeIds = nodeIds
+        .where((id) => rs.get<NodeComponent>(id)?.type == NodeType.input)
         .toList();
-    final outputNodes = nodeIds
-        .map((id) => rs.get<NodeComponent>(id))
-        .where((n) => n != null && n.type == NodeType.output)
+    final outputNodeIds = nodeIds
+        .where((id) => rs.get<NodeComponent>(id)?.type == NodeType.output)
         .toList();
 
     return Positioned(
@@ -206,12 +202,14 @@ class _VisualFormulaEditorWidgetState
                     style: TextStyle(
                         color: textColor, fontWeight: FontWeight.bold)),
                 const Divider(color: Colors.white24, height: 20),
-                if (inputNodes.isNotEmpty) ...[
+                if (inputNodeIds.isNotEmpty) ...[
                   Text('ورودی‌ها',
                       style: TextStyle(color: textColor.withOpacity(0.8))),
-                  ...inputNodes.map((node) {
+                  // FIX: Map over IDs, not components
+                  ...inputNodeIds.map((nodeId) {
+                    final node = rs.get<NodeComponent>(nodeId)!;
                     final inputId =
-                        node!.data['inputId'] as String? ?? node.id.toString();
+                        node.data['inputId'] as String? ?? nodeId.toString();
                     return _buildPreviewInputField(
                         node.label, inputId, canvasState, rs, textColor);
                   }),
@@ -219,8 +217,10 @@ class _VisualFormulaEditorWidgetState
                 ],
                 Text('خروجی‌ها',
                     style: TextStyle(color: textColor.withOpacity(0.8))),
-                ...outputNodes.map((node) {
-                  final nodeState = rs.get<NodeStateComponent>(node!.id);
+                // FIX: Map over IDs, not components
+                ...outputNodeIds.map((nodeId) {
+                  final node = rs.get<NodeComponent>(nodeId)!;
+                  final nodeState = rs.get<NodeStateComponent>(nodeId);
                   final value = nodeState?.outputValues['value'];
                   return _buildPreviewOutputField(node.label, value, textColor);
                 }),
@@ -283,7 +283,6 @@ class _VisualFormulaEditorWidgetState
 }
 
 class _FormulaCanvasPainter extends CustomPainter {
-  // ... (unchanged from v3.0)
   final FlutterRenderingSystem renderingSystem;
   final List<EntityId> nodeIds;
   final List<EntityId> connectionIds;
@@ -315,12 +314,14 @@ class _FormulaCanvasPainter extends CustomPainter {
       final nodeComp = renderingSystem.get<NodeComponent>(nodeId);
       final nodeState = renderingSystem.get<NodeStateComponent>(nodeId);
       if (nodeComp != null) {
-        _drawNode(canvas, nodeComp, nodeState);
+        // FIX: Pass the EntityId to the draw methods
+        _drawNode(canvas, nodeId, nodeComp, nodeState);
       }
     }
   }
 
-  void _drawNode(Canvas canvas, NodeComponent node, NodeStateComponent? state) {
+  void _drawNode(Canvas canvas, EntityId nodeId, NodeComponent node,
+      NodeStateComponent? state) {
     final pos = node.position;
     final rect = Rect.fromLTWH(pos.x, pos.y, pos.width, pos.height);
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(8));
@@ -328,7 +329,6 @@ class _FormulaCanvasPainter extends CustomPainter {
     final nodePaint = Paint()..color = _getColorForNodeType(node.type);
     canvas.drawRRect(rrect, nodePaint);
 
-    // Display calculated value on the node
     String displayValue = '';
     if (state?.errorMessage != null) {
       displayValue = state!.errorMessage!;
@@ -358,11 +358,11 @@ class _FormulaCanvasPainter extends CustomPainter {
         rect.top + (rect.height - textPainter.height) / 2);
     textPainter.paint(canvas, offset);
 
-    _drawPorts(canvas, node);
+    // FIX: Pass the EntityId to the draw methods
+    _drawPorts(canvas, nodeId, node);
   }
 
-  // ... (rest of painter is unchanged from v3.0)
-  void _drawPorts(Canvas canvas, NodeComponent node) {
+  void _drawPorts(Canvas canvas, EntityId nodeId, NodeComponent node) {
     final pos = node.position;
     final portPaint = Paint()..color = Colors.white.withOpacity(0.7);
     final portPaintHighlight = Paint()..color = Colors.amber;
@@ -370,7 +370,8 @@ class _FormulaCanvasPainter extends CustomPainter {
     // Outputs
     for (var i = 0; i < node.outputs.length; i++) {
       final y = pos.y + (pos.height / (node.outputs.length + 1)) * (i + 1);
-      final isBeingConnected = canvasState?.connectionStartNodeId == node.id &&
+      // FIX: Compare with nodeId, not node.id
+      final isBeingConnected = canvasState?.connectionStartNodeId == nodeId &&
           canvasState?.connectionStartPortId == node.outputs[i].id;
       canvas.drawCircle(Offset(pos.x + pos.width, y), 8.0,
           isBeingConnected ? portPaintHighlight : portPaint);
@@ -456,6 +457,6 @@ class _FormulaCanvasPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _FormulaCanvasPainter oldDelegate) {
-    return true; // For simplicity, always repaint for now.
+    return true;
   }
 }
