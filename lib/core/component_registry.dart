@@ -1,6 +1,10 @@
+// FILE: lib/core/component_registry.dart
+// (English comments for code clarity)
+
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/calculations/components/calculation_state_component.dart';
 import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
 
 // Import all custom serializable components from the project.
 import '../modules/calculations/components/calculation_result_component.dart';
@@ -33,7 +37,6 @@ void registerCustomComponents() {
     (json) => CalculationResultComponent.fromJson(json),
   );
 
-  // Register the new components for the dynamic calculation engine.
   registry.register(
     'PatternMethodComponent',
     (json) => PatternMethodComponent.fromJson(json),
@@ -42,5 +45,27 @@ void registerCustomComponents() {
   registry.register(
     'CalculationStateComponent',
     (json) => CalculationStateComponent.fromJson(json),
+  );
+
+  // Components for the visual editor
+  registry.register(
+    'NodeComponent',
+    (json) => NodeComponent.fromJson(json),
+  );
+
+  registry.register(
+    'EditorCanvasComponent',
+    (json) => EditorCanvasComponent.fromJson(json),
+  );
+
+  registry.register(
+    'ConnectionComponent',
+    (json) => ConnectionComponent.fromJson(json),
+  );
+
+  // ADDED: Register the new node state component
+  registry.register(
+    'NodeStateComponent',
+    (json) => NodeStateComponent.fromJson(json),
   );
 }
