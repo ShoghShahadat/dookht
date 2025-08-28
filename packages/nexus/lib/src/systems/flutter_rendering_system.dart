@@ -39,8 +39,8 @@ abstract class FlutterRenderingSystem extends ChangeNotifier {
     if (packets.isEmpty) return;
 
     // *** PRO LOGGING: Log incoming data ***
-    debugPrint(
-        "📦 [RenderingSystem] Received ${packets.length} packet(s) from logic world.");
+    // debugPrint(
+    // "📦 [RenderingSystem] Received ${packets.length} packet(s) from logic world.");
 
     final Set<EntityId> updatedEntities = {};
     bool needsGlobalNotify = false;
@@ -53,16 +53,16 @@ abstract class FlutterRenderingSystem extends ChangeNotifier {
         _componentCache.remove(packet.id);
         _entityNotifiers.remove(packet.id)?.dispose();
         needsGlobalNotify = true;
-        debugPrint("  - 🗑️ Processed removal for Entity ${packet.id}.");
+        // debugPrint("  - 🗑️ Processed removal for Entity ${packet.id}.");
         continue;
       }
 
       if (isNewEntity) {
         _componentCache[packet.id] = {};
         needsGlobalNotify = true;
-        debugPrint("  - ✨ Processed new Entity ${packet.id}.");
+        // debugPrint("  - ✨ Processed new Entity ${packet.id}.");
       } else {
-        debugPrint("  - 🔄 Processing update for Entity ${packet.id}.");
+        // debugPrint("  - 🔄 Processing update for Entity ${packet.id}.");
       }
 
       for (final typeName in packet.components.keys) {
@@ -86,8 +86,8 @@ abstract class FlutterRenderingSystem extends ChangeNotifier {
 
     if (needsGlobalNotify) {
       // *** PRO LOGGING: Log notification event ***
-      debugPrint(
-          "📢 [RenderingSystem] Cache updated. Notifying global listeners (e.g., for new/removed entities).");
+      // debugPrint(
+      // "📢 [RenderingSystem] Cache updated. Notifying global listeners (e.g., for new/removed entities).");
       notifyListeners();
     }
   }

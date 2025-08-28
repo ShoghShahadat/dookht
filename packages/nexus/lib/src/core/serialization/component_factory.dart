@@ -25,7 +25,7 @@ class ComponentFactoryRegistry {
   /// Registers a single component factory.
   void register(String typeName, ComponentFactory factory) {
     if (kDebugMode) {
-      print("[ComponentRegistry] Registering factory for: $typeName");
+      // print("[ComponentRegistry] Registering factory for: $typeName");
     }
     _factories[typeName] = factory;
   }

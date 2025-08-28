@@ -60,12 +60,12 @@ class NexusIsolateManager implements NexusManager {
   @override
   Future<void> dispose({bool isHotReload = false}) async {
     if (isHotReload) {
-      debugPrint(
-          "[NexusIsolateManager] Hot reload detected. Isolate will be preserved.");
+      // debugPrint((
+      // "[NexusIsolateManager] Hot reload detected. Isolate will be preserved.");
       return;
     }
 
-    debugPrint("[NexusIsolateManager] Disposing isolate...");
+    // debugPrint(("[NexusIsolateManager] Disposing isolate...");
     _sendPort?.send('shutdown');
     _receivePort.close();
     await _renderPacketController.close();
@@ -103,8 +103,8 @@ void _isolateEntryPoint(List<dynamic> args) async {
     // Immediately send the initial state of the world to the UI after initialization.
     // This solves the initial loading screen bug by ensuring the UI gets data
     // as soon as the logic isolate is ready, without waiting for a message from the UI.
-    debugPrint(
-        "[NexusLogicIsolate] World initialized. Sending initial hydration packet.");
+    // debugPrint((
+    // "[NexusLogicIsolate] World initialized. Sending initial hydration packet.");
     final initialPackets = <RenderPacket>[];
     for (final entity in world.entities.values) {
       final serializableComponents = <String, Map<String, dynamic>>{};
@@ -175,8 +175,8 @@ void _isolateEntryPoint(List<dynamic> args) async {
             isolateReceivePort.close();
             break;
           case 'hydrate':
-            debugPrint(
-                "[NexusLogicIsolate] Hydration requested. Sending full world snapshot.");
+            // debugPrint((
+            // "[NexusLogicIsolate] Hydration requested. Sending full world snapshot.");
             final packets = <RenderPacket>[];
             for (final entity in world.entities.values) {
               final serializableComponents = <String, Map<String, dynamic>>{};
