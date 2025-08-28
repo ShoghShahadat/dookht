@@ -1,4 +1,9 @@
+// FILE: lib/modules/customers/ui/customer_list_builder.dart
+// (English comments for code clarity)
+// MODIFIED v2.0: Added specialized logging to the FAB's onPressed callback.
+
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
 import '../../ui/rendering_system.dart';
@@ -33,8 +38,11 @@ class CustomerListBuilder implements IWidgetBuilder {
               if (settingsButtonId != null)
                 IconButton(
                   icon: Icon(Icons.settings_outlined, color: textColor),
-                  onPressed: () =>
-                      rs.manager?.send(EntityTapEvent(settingsButtonId)),
+                  onPressed: () {
+                    debugPrint(
+                        "[LOG | UI Event] Settings button tapped. Sending EntityTapEvent for ID: $settingsButtonId.");
+                    rs.manager?.send(EntityTapEvent(settingsButtonId));
+                  },
                   tooltip: 'مدیریت متدها',
                 ),
             ],
@@ -102,7 +110,8 @@ class CustomerListBuilder implements IWidgetBuilder {
       EntityId customerId, CustomerComponent customer, Color textColor) {
     return GestureDetector(
       onTap: () {
-        // When a customer card is tapped, fire an event to show their calculation page.
+        debugPrint(
+            "[LOG | UI Event] Customer card tapped. Sending ShowCalculationPageEvent for customer ID: $customerId.");
         rs.manager?.send(ShowCalculationPageEvent(customerId));
       },
       child: ClipRRect(
@@ -164,6 +173,8 @@ class CustomerListBuilder implements IWidgetBuilder {
       BuildContext context, FlutterRenderingSystem rs, EntityId buttonId) {
     return FloatingActionButton(
       onPressed: () {
+        debugPrint(
+            "[LOG | UI Event] Add Customer FAB tapped. Sending EntityTapEvent for ID: $buttonId.");
         rs.manager?.send(EntityTapEvent(buttonId));
       },
       backgroundColor: Colors.white.withOpacity(0.9),

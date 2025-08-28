@@ -1,9 +1,11 @@
 // FILE: lib/core/component_registry.dart
 // (English comments for code clarity)
+// MODIFIED v2.0: Registered the new TransitionComponent.
 
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/calculations/components/calculation_state_component.dart';
 import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
+import 'package:tailor_assistant/modules/ui/transitions/transition_component.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
 
 // Import all custom serializable components from the project.
@@ -63,9 +65,14 @@ void registerCustomComponents() {
     (json) => ConnectionComponent.fromJson(json),
   );
 
-  // ADDED: Register the new node state component
   registry.register(
     'NodeStateComponent',
     (json) => NodeStateComponent.fromJson(json),
+  );
+
+  // NEW: Register the transition component
+  registry.register(
+    'TransitionComponent',
+    (json) => TransitionComponent.fromJson(json),
   );
 }
