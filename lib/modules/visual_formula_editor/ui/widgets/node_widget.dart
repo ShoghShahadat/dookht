@@ -1,7 +1,7 @@
 // FILE: lib/modules/visual_formula_editor/ui/widgets/node_widget.dart
 // (English comments for code clarity)
-// REFACTORED v2.0: Removed the internal GestureDetector. All gestures are now
-// handled by the parent InteractiveCanvasLayer to prevent conflicts.
+// REFACTORED v3.0: Added visual rendering for input and output ports (the circles).
+// The widget now correctly displays the connection points.
 
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
@@ -29,8 +29,6 @@ class NodeWidget extends StatelessWidget {
     final pos = node.position;
     final isSelected = canvasState.selectedEntityId == nodeId;
 
-    // The Positioned widget places the node on the canvas.
-    // The gesture handling is now deferred to the parent canvas.
     return Positioned(
       left: pos.x,
       top: pos.y,
@@ -60,6 +58,10 @@ class NodeWidget extends StatelessWidget {
                 style: const TextStyle(color: Colors.white),
               ),
             ),
+            // Render input ports
+            ..._buildPorts(node, isInput: true),
+            // Render output ports
+            ..._buildPorts(node, isInput: false),
             if (_nodeHasSettings(node.type))
               Positioned(
                 top: -8,
@@ -80,6 +82,40 @@ class NodeWidget extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Builds the list of port widgets for either input or output.
+  List<Widget> _buildPorts(NodeComponent node, {required bool isInput}) {
+    final ports = isInput ? node.inputs : node.outputs;
+    if (ports.isEmpty) return [];
+
+    const double portRadius = 10.0;
+    const double portSize = portRadius * 2;
+
+    return List.generate(ports.length, (index) {
+      final port = ports[index];
+      final topPosition =
+          (node.position.height / (ports.length + 1)) * (index + 1);
+
+      return Positioned(
+        top: topPosition - portRadius,
+        left: isInput ? -portRadius : null,
+        right: isInput ? null : -portRadius,
+        child: Tooltip(
+          message: port.label,
+          child: Container(
+            width: portSize,
+            height: portSize,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade600,
+              shape: BoxShape.circle,
+              border:
+                  Border.all(color: Colors.white.withOpacity(0.7), width: 2),
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   String _getNodeDisplayValue(NodeStateComponent? state) {

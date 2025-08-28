@@ -1,7 +1,9 @@
 // FILE: lib/modules/visual_formula_editor/ui/painters/formula_canvas_painter.dart
 // (English comments for code clarity)
-// REFACTORED v1.1: The painter is now only responsible for drawing connections.
-// Nodes are rendered as separate widgets for better interactivity.
+// REFACTORED v2.0: MAJOR FIX - Removed the redundant canvas.transform call.
+// The parent Transform widget in InteractiveCanvasLayer already handles panning and zooming.
+// Applying it again here caused a "double transform" bug where connections moved
+// incorrectly relative to the nodes.
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -9,7 +11,7 @@ import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/utils/editor_helpers.dart';
 
-/// The CustomPainter that will render our entire formula graph.
+/// The CustomPainter that renders all connections between nodes.
 class FormulaCanvasPainter extends CustomPainter {
   final FlutterRenderingSystem renderingSystem;
   final List<EntityId> connectionIds;
@@ -23,14 +25,11 @@ class FormulaCanvasPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final transformMatrix = Matrix4.identity()
-      ..translate(canvasState?.panX ?? 0.0, canvasState?.panY ?? 0.0)
-      ..scale(canvasState?.zoom ?? 1.0);
+    // The canvas is already transformed by the parent widget.
+    // We can now draw directly in the local, scaled coordinate space.
+    // No need for canvas.save(), canvas.transform(), or canvas.restore().
 
-    canvas.save();
-    canvas.transform(transformMatrix.storage);
-
-    // Draw connections first so they appear behind nodes
+    // Draw existing connections first so they appear behind nodes
     for (final connectionId in connectionIds) {
       final connComp = renderingSystem.get<ConnectionComponent>(connectionId);
       if (connComp != null) {
@@ -40,8 +39,6 @@ class FormulaCanvasPainter extends CustomPainter {
 
     // Draw the connection being drafted by the user
     _drawDraftConnection(canvas);
-
-    canvas.restore();
   }
 
   void _drawConnection(
@@ -69,7 +66,10 @@ class FormulaCanvasPainter extends CustomPainter {
   }
 
   void _drawDraftConnection(Canvas canvas) {
-    if (canvasState?.connectionStartNodeId != null) {
+    if (canvasState?.connectionStartNodeId != null &&
+        canvasState?.connectionStartPortId != null &&
+        canvasState?.connectionDraftX != null &&
+        canvasState?.connectionDraftY != null) {
       final startNode = renderingSystem
           .get<NodeComponent>(canvasState!.connectionStartNodeId!);
       if (startNode == null) return;
