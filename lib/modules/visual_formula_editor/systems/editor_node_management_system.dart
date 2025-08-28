@@ -1,8 +1,9 @@
 // FILE: lib/modules/visual_formula_editor/systems/editor_node_management_system.dart
 // (English comments for code clarity)
-// This system manages the lifecycle of nodes.
+// MODIFIED v2.0: Added debug logging.
 
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/editor_events.dart';
@@ -18,6 +19,9 @@ class EditorNodeManagementSystem extends System {
   }
 
   void _onAddNode(AddNodeEvent event) {
+    debugPrint(
+        "[Log] EditorNodeManagementSystem: Received AddNodeEvent for type ${event.type}.");
+
     final canvasEntity = world.entities.values
         .firstWhereOrNull((e) => e.has<EditorCanvasComponent>());
     final canvasState = canvasEntity?.get<EditorCanvasComponent>();
@@ -32,10 +36,14 @@ class EditorNodeManagementSystem extends System {
 
     final newNode = createNodeFromType(event.type, x, y);
     world.addEntity(newNode);
+    debugPrint(
+        "[Log] EditorNodeManagementSystem: Added new node entity ${newNode.id}. Firing RecalculateGraphEvent.");
     world.eventBus.fire(RecalculateGraphEvent());
   }
 
   void _onDeleteNode(DeleteNodeEvent event) {
+    debugPrint(
+        "[Log] EditorNodeManagementSystem: Received DeleteNodeEvent for node ${event.nodeId}.");
     // Find all connections attached to the node being deleted.
     final connections = world.entities.values.where((e) {
       final c = e.get<ConnectionComponent>();
@@ -52,6 +60,8 @@ class EditorNodeManagementSystem extends System {
     world.removeEntity(event.nodeId);
 
     // Trigger a graph recalculation.
+    debugPrint(
+        "[Log] EditorNodeManagementSystem: Node and its connections removed. Firing RecalculateGraphEvent.");
     world.eventBus.fire(RecalculateGraphEvent());
   }
 

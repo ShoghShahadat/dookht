@@ -1,8 +1,9 @@
 // FILE: lib/modules/visual_formula_editor/systems/graph_sync_system.dart
 // (English comments for code clarity)
-// NEW FILE: This system is responsible for the Graph -> Text data flow.
+// MODIFIED v2.0: Added debug logging.
 
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/editor_events.dart';
@@ -19,6 +20,7 @@ class GraphSyncSystem extends System {
   }
 
   void _onGraphChanged(RecalculateGraphEvent event) {
+    debugPrint("[Log] GraphSyncSystem: Received RecalculateGraphEvent.");
     final canvasEntity = world.entities.values
         .firstWhereOrNull((e) => e.has<EditorCanvasComponent>());
     if (canvasEntity == null) return;
@@ -29,10 +31,18 @@ class GraphSyncSystem extends System {
     final generator = GraphGeneratorSystem(world);
     final newExpression = generator.generate();
 
+    debugPrint(
+        "[Log] GraphSyncSystem: Generated new expression: '$newExpression'.");
+
     // Update the central canvas state with the new expression.
     // The UI widget will listen to this change and update the text field.
     if (canvasState.currentExpression != newExpression) {
+      debugPrint(
+          "[Log] GraphSyncSystem: Updating canvas state with new expression.");
       canvasEntity.add(canvasState.copyWith(currentExpression: newExpression));
+    } else {
+      debugPrint(
+          "[Log] GraphSyncSystem: No change in expression, not updating canvas state.");
     }
   }
 

@@ -1,6 +1,7 @@
 // FILE: lib/modules/visual_formula_editor/utils/editor_helpers.dart
 // (English comments for code clarity)
-// MODIFIED v3.0: Updated the factory for NodeType.condition to its new structure.
+// MODIFIED v4.0: Ensured the 'data' map in NodeComponent is always mutable
+// by creating it from a copy, fixing the "unmodifiable map" crash.
 
 import 'dart:math';
 import 'dart:ui';
@@ -100,7 +101,9 @@ Entity createNodeFromType(NodeType type, double x, double y) {
             ..width = 150
             ..height = 80,
           outputs: [NodePort(id: 'value', label: 'مقدار')],
-          data: {'inputId': 'input_${random.nextInt(1000)}'});
+          // **FIX**: Ensure map is mutable
+          data: Map<String, dynamic>.from(
+              {'inputId': 'input_${random.nextInt(1000)}'}));
       break;
     case NodeType.constant:
       nodeComp = NodeComponent(
@@ -110,7 +113,8 @@ Entity createNodeFromType(NodeType type, double x, double y) {
             ..width = 150
             ..height = 80,
           outputs: [NodePort(id: 'value', label: 'مقدار')],
-          data: {'value': 1.0});
+          // **FIX**: Ensure map is mutable
+          data: Map<String, dynamic>.from({'value': 1.0}));
       break;
     case NodeType.operator:
       nodeComp = NodeComponent(
@@ -119,9 +123,8 @@ Entity createNodeFromType(NodeType type, double x, double y) {
           position: position
             ..width = 80
             ..height = 110, // Adjusted for two initial inputs
-          data: {
-            'operator': '+'
-          },
+          // **FIX**: Ensure map is mutable
+          data: Map<String, dynamic>.from({'operator': '+'}),
           inputs: [
             NodePort(id: 'in_0', label: 'A'),
             NodePort(id: 'in_1', label: 'B') // Start with two inputs
@@ -132,12 +135,15 @@ Entity createNodeFromType(NodeType type, double x, double y) {
       break;
     case NodeType.output:
       nodeComp = NodeComponent(
-          label: 'خروجی جدید',
-          type: type,
-          position: position
-            ..width = 150
-            ..height = 80,
-          inputs: [NodePort(id: 'value', label: 'مقدار')]);
+        label: 'خروجی جدید',
+        type: type,
+        position: position
+          ..width = 150
+          ..height = 80,
+        inputs: [NodePort(id: 'value', label: 'مقدار')],
+        // **FIX**: Ensure map is mutable
+        data: <String, dynamic>{},
+      );
       break;
     case NodeType.condition:
       nodeComp = NodeComponent(
@@ -146,9 +152,8 @@ Entity createNodeFromType(NodeType type, double x, double y) {
           position: position
             ..width = 150
             ..height = 140, // Increased height for 3 inputs
-          data: {
-            'operator': '=='
-          }, // Default operator
+          // **FIX**: Ensure map is mutable
+          data: Map<String, dynamic>.from({'operator': '=='}),
           inputs: [
             NodePort(id: 'in_a', label: 'مقدار اول'),
             NodePort(id: 'in_b', label: 'مقدار دوم'),

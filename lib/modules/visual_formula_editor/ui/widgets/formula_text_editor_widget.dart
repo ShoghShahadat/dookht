@@ -1,10 +1,10 @@
 // FILE: lib/modules/visual_formula_editor/ui/widgets/formula_text_editor_widget.dart
 // (English comments for code clarity)
-// MODIFIED v2.0: Implemented a flag (_isProgrammaticUpdate) to prevent a
-// destructive feedback loop between the graph editor and the text editor.
+// MODIFIED v3.0: Added debug logging.
 
 import 'dart:async';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
@@ -28,18 +28,15 @@ class FormulaTextEditorWidget extends StatefulWidget {
 class _FormulaTextEditorWidgetState extends State<FormulaTextEditorWidget> {
   final TextEditingController _controller = TextEditingController();
   Timer? _debounce;
-  // A flag to prevent the update loop. When true, it means the text is being
-  // updated by the system (from the graph), not by the user.
   bool _isProgrammaticUpdate = false;
 
   @override
   void initState() {
     super.initState();
-    // Listen for changes from the logic world to update the text field
     widget.renderingSystem
         .getNotifier(widget.editorEntityId)
         .addListener(_onCanvasStateChanged);
-    _onCanvasStateChanged(); // Initial sync
+    _onCanvasStateChanged();
   }
 
   @override
@@ -60,26 +57,28 @@ class _FormulaTextEditorWidgetState extends State<FormulaTextEditorWidget> {
         .get<EditorCanvasComponent>(widget.editorEntityId);
     if (canvasState == null) return;
 
-    // Update the text field only if the text is different, to avoid cursor jumps
     if (_controller.text != canvasState.currentExpression) {
-      // Set the flag to true before programmatically changing the text
+      debugPrint(
+          "[Log] FormulaTextEditorWidget: Canvas state changed. Programmatically updating text to '${canvasState.currentExpression}'.");
       _isProgrammaticUpdate = true;
       _controller.text = canvasState.currentExpression;
     }
   }
 
   void _onTextChanged(String value) {
-    // If the change was programmatic, reset the flag and do nothing else.
-    // This breaks the feedback loop.
     if (_isProgrammaticUpdate) {
+      debugPrint(
+          "[Log] FormulaTextEditorWidget: Text changed programmatically. Ignoring event.");
       _isProgrammaticUpdate = false;
       return;
     }
 
-    // If the change was from the user, debounce the event to avoid
-    // flooding the logic isolate while typing.
+    debugPrint(
+        "[Log] FormulaTextEditorWidget: Text changed by user to '$value'. Debouncing event.");
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 750), () {
+      debugPrint(
+          "[Log] FormulaTextEditorWidget: Debounce finished. Sending UpdateFormulaFromTextEvent.");
       widget.renderingSystem.manager?.send(UpdateFormulaFromTextEvent(value));
     });
   }

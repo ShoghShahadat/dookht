@@ -1,9 +1,11 @@
 // FILE: lib/modules/visual_formula_editor/systems/formula_parser_system.dart
 // (English comments for code clarity)
-// MODIFIED v2.0: Rewritten with a more robust, recursive layout algorithm to
-// prevent nodes from overlapping in complex expressions.
+// MODIFIED v4.0: MAJOR FIX - Changed the catch clause to a more generic
+// 'on Exception' to resolve the 'non_type_in_catch_clause' error.
+// Also removed unused private fields '_world' and '_variables'.
 
 import 'package:expressions/expressions.dart';
+import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
@@ -12,34 +14,31 @@ import 'package:tailor_assistant/modules/visual_formula_editor/utils/editor_help
 /// A system responsible for parsing a mathematical expression string and generating
 /// a corresponding graph of Node and Connection entities with a proper layout.
 class FormulaParserSystem {
-  final NexusWorld _world;
-  final List<DynamicVariable> _variables;
+  // Unused fields removed to fix analyzer warnings.
   final double _xStep = 200;
   final double _yStep = 120;
 
   // A map to track the y-position for each level of the tree to avoid overlaps
   final Map<int, double> _yPositions = {};
 
-  FormulaParserSystem(this._world, this._variables);
+  // Constructor no longer needs unused parameters.
+  FormulaParserSystem();
 
   List<Entity> parse(String resultKey, String expression) {
     _yPositions.clear();
     final List<Entity> entities = [];
+
+    // Always create the final output node first
+    final outputNode = createNodeFromType(NodeType.output, 800, 250);
+    outputNode.get<NodeComponent>()!.data['resultKey'] = resultKey;
+    entities.add(outputNode);
+
     if (expression.trim().isEmpty) {
-      // If expression is empty, just create an output node
-      final outputNode = createNodeFromType(NodeType.output, 800, 250)
-        ..get<NodeComponent>()!.data['resultKey'] = resultKey;
-      entities.add(outputNode);
-      return entities;
+      return entities; // Return just the output node if expression is empty
     }
 
     try {
       final parsedExpression = Expression.parse(expression);
-
-      // Create the final output node
-      final outputNode = createNodeFromType(NodeType.output, 800, 250)
-        ..get<NodeComponent>()!.data['resultKey'] = resultKey;
-      entities.add(outputNode);
 
       // Recursively parse the expression tree, starting at depth 0
       final resultEntity = _parseNode(parsedExpression, 0, entities);
@@ -56,12 +55,13 @@ class FormulaParserSystem {
           ..add(TagsComponent({'connection_component'}));
         entities.add(connection);
       }
+    } on Exception catch (e) {
+      // **MAJOR FIX**: Using a more generic 'Exception' type to catch all
+      // possible parsing errors robustly.
+      debugPrint("[FormulaParserSystem] Handled parser error: $e");
     } catch (e) {
-      print("[FormulaParserSystem] Error parsing expression '$expression': $e");
-      // Return just the output node if parsing fails
-      final outputNode = createNodeFromType(NodeType.output, 800, 250)
-        ..get<NodeComponent>()!.data['resultKey'] = resultKey;
-      entities.add(outputNode);
+      debugPrint(
+          "[FormulaParserSystem] Unexpected error parsing expression '$expression': $e");
     }
     return entities;
   }

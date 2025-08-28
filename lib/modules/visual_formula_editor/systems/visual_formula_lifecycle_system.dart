@@ -1,6 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/systems/visual_formula_lifecycle_system.dart
 // (English comments for code clarity)
-// MODIFIED v5.0: Added extensive debug logging to trace the loading process.
+// MODIFIED v6.0: Corrected the constructor call for FormulaParserSystem.
 
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
@@ -35,12 +35,10 @@ class VisualFormulaLifecycleSystem extends System {
         viewState.activeFormulaKey != _activeFormulaKey;
 
     if (isEnteringEditor && isNewFormula) {
-      debugPrint("[VFLifecycle] ➡️ Entering editor for a new formula.");
       _activeMethodId = viewState.activeMethodId;
       _activeFormulaKey = viewState.activeFormulaKey;
       _loadGraphForActiveFormula();
     } else if (!isEnteringEditor && hasActiveFormula) {
-      debugPrint("[VFLifecycle] ⬅️ Exiting editor. Saving graph.");
       _saveGraphAndUnload();
     }
   }
@@ -55,19 +53,13 @@ class VisualFormulaLifecycleSystem extends System {
         .map((e) => e.id)
         .toList();
 
-    if (nodeIds.isNotEmpty || connectionIds.isNotEmpty) {
-      debugPrint(
-          "[VFLifecycle] 🧹 Clearing ${nodeIds.length} nodes and ${connectionIds.length} connections.");
-      for (final id in [...nodeIds, ...connectionIds]) {
-        world.removeEntity(id);
-      }
+    for (final id in [...nodeIds, ...connectionIds]) {
+      world.removeEntity(id);
     }
   }
 
   void _loadGraphForActiveFormula() {
     if (_activeMethodId == null || _activeFormulaKey == null) {
-      debugPrint(
-          "[VFLifecycle] ❌ Load failed: Active method or formula key is null.");
       return;
     }
 
@@ -76,45 +68,30 @@ class VisualFormulaLifecycleSystem extends System {
     final methodEntity = world.entities[_activeMethodId!];
     final methodComp = methodEntity?.get<PatternMethodComponent>();
     if (methodComp == null) {
-      debugPrint(
-          "[VFLifecycle] ❌ Load failed: Could not find method entity with ID $_activeMethodId.");
       return;
     }
 
     final formula = methodComp.formulas
         .firstWhereOrNull((f) => f.resultKey == _activeFormulaKey);
     if (formula == null) {
-      debugPrint(
-          "[VFLifecycle] ❌ Load failed: Could not find formula with key '$_activeFormulaKey' in method '${methodComp.name}'.");
       return;
     }
-
-    debugPrint(
-        "[VFLifecycle] 🔎 Found formula '${formula.label}' with key '${formula.resultKey}'.");
-    debugPrint("[VFLifecycle]  EXPRESSION: '${formula.expression}'");
-    debugPrint(
-        "[VFLifecycle] HAS_GRAPH_DATA: ${formula.visualGraphData != null}");
 
     List<Entity> newEntities = [];
     if (formula.visualGraphData != null &&
         formula.visualGraphData!['nodes'] != null &&
         (formula.visualGraphData!['nodes'] as List).isNotEmpty) {
-      debugPrint("[VFLifecycle] 📈 Deserializing from existing graph data...");
       newEntities = _deserializeGraph(formula.visualGraphData!);
     } else if (formula.expression.trim().isNotEmpty) {
-      debugPrint("[VFLifecycle] 📝 Parsing from expression string...");
-      final parser = FormulaParserSystem(world, methodComp.variables);
+      // **FIX**: The constructor for FormulaParserSystem now takes no arguments.
+      final parser = FormulaParserSystem();
       newEntities = parser.parse(formula.resultKey, formula.expression);
     } else {
-      debugPrint(
-          "[VFLifecycle] 💡 No data found. Creating a fresh output node.");
       final outputNode = createNodeFromType(NodeType.output, 800, 250)
         ..get<NodeComponent>()!.data['resultKey'] = formula.resultKey;
       newEntities.add(outputNode);
     }
 
-    debugPrint(
-        "[VFLifecycle] ✅ Adding ${newEntities.length} new entities to the world for the graph.");
     for (final entity in newEntities) {
       world.addEntity(entity);
     }
@@ -123,16 +100,9 @@ class VisualFormulaLifecycleSystem extends System {
   void _saveGraphAndUnload() {
     if (_activeMethodId == null || _activeFormulaKey == null) return;
 
-    debugPrint(
-        "[VFLifecycle] 💾 Saving graph for '$_activeFormulaKey' and unloading...");
-
     final generator = GraphGeneratorSystem(world);
     final newExpression = generator.generate();
     final serializedGraph = _serializeGraph();
-
-    debugPrint("[VFLifecycle] 💾 Generated Expression: '$newExpression'");
-    debugPrint(
-        "[VFLifecycle] 💾 Serialized Graph contains ${serializedGraph['nodes']?.length ?? 0} nodes.");
 
     final methodEntity = world.entities[_activeMethodId!];
     final methodComp = methodEntity?.get<PatternMethodComponent>();

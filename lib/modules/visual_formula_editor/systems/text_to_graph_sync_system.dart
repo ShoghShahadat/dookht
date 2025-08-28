@@ -1,8 +1,9 @@
 // FILE: lib/modules/visual_formula_editor/systems/text_to_graph_sync_system.dart
 // (English comments for code clarity)
-// NEW FILE: This system handles the Text -> Graph data flow.
+// MODIFIED v3.0: Corrected the constructor call for FormulaParserSystem.
 
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
 import 'package:tailor_assistant/modules/ui/view_manager/view_manager_component.dart';
@@ -38,7 +39,8 @@ class TextToGraphSyncSystem extends System {
     _clearCurrentGraph();
 
     // 3. Parse the new expression and create new graph entities
-    final parser = FormulaParserSystem(world, methodComp.variables);
+    // **FIX**: The constructor for FormulaParserSystem now takes no arguments.
+    final parser = FormulaParserSystem();
     final newEntities = parser.parse(formulaKey, event.expression);
 
     // 4. Add the new entities to the world
@@ -47,7 +49,6 @@ class TextToGraphSyncSystem extends System {
     }
 
     // 5. Trigger a recalculation to update node states and sync back to text
-    // (This also ensures the expression is formatted correctly after parsing)
     world.eventBus.fire(RecalculateGraphEvent());
   }
 
