@@ -1,7 +1,3 @@
-// FILE: lib/modules/visual_formula_editor/ui/screens/visual_formula_editor_screen.dart
-// (English comments for code clarity)
-// This is the new main screen widget, responsible for the Scaffold and top-level layout.
-
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/customers/customer_events.dart';
