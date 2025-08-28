@@ -1,16 +1,20 @@
 // FILE: lib/modules/visual_formula_editor/ui/widgets/visual_formula_editor_widget.dart
 // (English comments for code clarity)
+// FIX v2.3: Corrected the event dispatching syntax.
 
 import 'dart:ui';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/customers/customer_events.dart';
+import 'package:tailor_assistant/modules/method_management/method_management_events.dart';
 import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/editor_events.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/ui/painters/formula_canvas_painter.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/ui/widgets/preview_panel_widget.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/ui/widgets/toolbar_widget.dart';
+import '../../../ui/rendering_system.dart';
 
 /// The main stateful widget for the visual editor screen.
 class VisualFormulaEditorWidget extends StatefulWidget {
@@ -31,8 +35,6 @@ class VisualFormulaEditorWidget extends StatefulWidget {
 }
 
 class _VisualFormulaEditorWidgetState extends State<VisualFormulaEditorWidget> {
-  Offset? _panStart;
-
   Color _getTextColor() {
     final rs = widget.renderingSystem;
     final themeManagerId = rs.getAllIdsWithTag('theme_manager').firstOrNull;
@@ -62,6 +64,7 @@ class _VisualFormulaEditorWidgetState extends State<VisualFormulaEditorWidget> {
         centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: textColor),
+          // FIX: Correctly dispatch the event
           onPressed: () => rs.manager?.send(ShowMethodManagementEvent()),
         ),
       ),
@@ -73,7 +76,6 @@ class _VisualFormulaEditorWidgetState extends State<VisualFormulaEditorWidget> {
           final canvasState =
               rs.get<EditorCanvasComponent>(widget.editorEntityId);
 
-          // Convert canvas coordinates to screen coordinates for the menu
           Offset? contextMenuScreenPos;
           if (canvasState?.contextMenuX != null &&
               canvasState?.contextMenuY != null &&
@@ -87,63 +89,59 @@ class _VisualFormulaEditorWidgetState extends State<VisualFormulaEditorWidget> {
 
           return Stack(
             children: [
-              GestureDetector(
-                onTapUp: (details) {
-                  final canvasState =
-                      rs.get<EditorCanvasComponent>(widget.editorEntityId);
-                  if (canvasState == null) return;
-                  final canvasX =
-                      (details.localPosition.dx - canvasState.panX) /
-                          canvasState.zoom;
-                  final canvasY =
-                      (details.localPosition.dy - canvasState.panY) /
-                          canvasState.zoom;
-                  rs.manager?.send(
-                      CanvasPointerUpEvent(localX: canvasX, localY: canvasY));
-                },
-                onLongPressStart: (details) {
-                  final canvasState =
-                      rs.get<EditorCanvasComponent>(widget.editorEntityId);
-                  if (canvasState == null) return;
-                  final canvasX =
-                      (details.localPosition.dx - canvasState.panX) /
-                          canvasState.zoom;
-                  final canvasY =
-                      (details.localPosition.dy - canvasState.panY) /
-                          canvasState.zoom;
-                  rs.manager?.send(ShowNodeContextMenuEvent(
-                      nodeId: -1,
-                      x: canvasX,
-                      y: canvasY)); // ID is found in system
-                },
-                onScaleStart: (details) {
-                  _panStart = details.localFocalPoint;
-                },
-                onScaleUpdate: (details) {
-                  if (details.scale != 1.0) {
-                    rs.manager?.send(CanvasZoomEvent(
-                      zoomDelta: details.scale,
-                      localX: details.localFocalPoint.dx,
-                      localY: details.localFocalPoint.dy,
-                    ));
-                  } else if (_panStart != null) {
-                    final delta = details.localFocalPoint - _panStart!;
+              SizedBox.expand(
+                child: GestureDetector(
+                  onTapUp: (details) {
+                    final canvasState =
+                        rs.get<EditorCanvasComponent>(widget.editorEntityId);
+                    if (canvasState == null) return;
+                    final canvasX =
+                        (details.localPosition.dx - canvasState.panX) /
+                            canvasState.zoom;
+                    final canvasY =
+                        (details.localPosition.dy - canvasState.panY) /
+                            canvasState.zoom;
                     rs.manager?.send(
-                        CanvasPanEvent(deltaX: delta.dx, deltaY: delta.dy));
-                    _panStart = details.localFocalPoint;
-                  }
-                },
-                onScaleEnd: (details) {
-                  _panStart = null;
-                },
-                child: CustomPaint(
-                  painter: FormulaCanvasPainter(
-                    renderingSystem: rs,
-                    nodeIds: nodeIds,
-                    connectionIds: connectionIds,
-                    canvasState: canvasState,
+                        CanvasTapUpEvent(localX: canvasX, localY: canvasY));
+                  },
+                  onLongPressStart: (details) {
+                    final canvasState =
+                        rs.get<EditorCanvasComponent>(widget.editorEntityId);
+                    if (canvasState == null) return;
+                    final canvasX =
+                        (details.localPosition.dx - canvasState.panX) /
+                            canvasState.zoom;
+                    final canvasY =
+                        (details.localPosition.dy - canvasState.panY) /
+                            canvasState.zoom;
+                    rs.manager?.send(CanvasLongPressStartEvent(
+                        localX: canvasX, localY: canvasY));
+                  },
+                  onScaleStart: (details) {
+                    rs.manager?.send(CanvasScaleStartEvent(
+                      focalX: details.localFocalPoint.dx,
+                      focalY: details.localFocalPoint.dy,
+                    ));
+                  },
+                  onScaleUpdate: (details) {
+                    rs.manager?.send(CanvasScaleUpdateEvent(
+                      focalX: details.localFocalPoint.dx,
+                      focalY: details.localFocalPoint.dy,
+                      scale: details.scale,
+                    ));
+                  },
+                  onScaleEnd: (details) {
+                    rs.manager?.send(CanvasScaleEndEvent());
+                  },
+                  child: CustomPaint(
+                    painter: FormulaCanvasPainter(
+                      renderingSystem: rs,
+                      nodeIds: nodeIds,
+                      connectionIds: connectionIds,
+                      canvasState: canvasState,
+                    ),
+                    child: SizedBox.expand(),
                   ),
-                  child: Container(),
                 ),
               ),
               ToolbarWidget(renderingSystem: rs),
@@ -194,7 +192,6 @@ class _VisualFormulaEditorWidgetState extends State<VisualFormulaEditorWidget> {
                       rs.manager?.send(HideContextMenuEvent());
                     },
                   ),
-                  // Add other options like Edit, Duplicate here
                 ],
               ),
             ),

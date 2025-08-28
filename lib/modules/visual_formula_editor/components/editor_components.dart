@@ -1,5 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/components/editor_components.dart
 // (English comments for code clarity)
+// FIX v4.1: Added the missing copyWith methods to components for immutable updates.
 
 import 'package:nexus/nexus.dart';
 
@@ -49,6 +50,24 @@ class NodeComponent extends Component with SerializableComponent {
     this.inputs = const [],
     this.outputs = const [],
   });
+
+  NodeComponent copyWith({
+    String? label,
+    NodeType? type,
+    PositionComponent? position,
+    Map<String, dynamic>? data,
+    List<NodePort>? inputs,
+    List<NodePort>? outputs,
+  }) {
+    return NodeComponent(
+      label: label ?? this.label,
+      type: type ?? this.type,
+      position: position ?? this.position,
+      data: data ?? this.data,
+      inputs: inputs ?? this.inputs,
+      outputs: outputs ?? this.outputs,
+    );
+  }
 
   factory NodeComponent.fromJson(Map<String, dynamic> json) {
     return NodeComponent(
@@ -125,10 +144,9 @@ class EditorCanvasComponent extends Component with SerializableComponent {
   final String? connectionStartPortId;
   final double? connectionDraftX;
   final double? connectionDraftY;
-
+  
   final Map<String, double> previewInputValues;
 
-  // State for the context menu
   final EntityId? contextMenuNodeId;
   final double? contextMenuX;
   final double? contextMenuY;
@@ -147,6 +165,44 @@ class EditorCanvasComponent extends Component with SerializableComponent {
     this.contextMenuX,
     this.contextMenuY,
   });
+
+  EditorCanvasComponent copyWith({
+    double? panX,
+    double? panY,
+    double? zoom,
+    EntityId? draggedEntityId,
+    bool clearDraggedEntityId = false,
+    EntityId? connectionStartNodeId,
+    bool clearConnectionStartNodeId = false,
+    String? connectionStartPortId,
+    bool clearConnectionStartPortId = false,
+    double? connectionDraftX,
+    bool clearConnectionDraftX = false,
+    double? connectionDraftY,
+    bool clearConnectionDraftY = false,
+    Map<String, double>? previewInputValues,
+    EntityId? contextMenuNodeId,
+    bool clearContext MenuNodeId = false,
+    double? contextMenuX,
+    bool clearContextMenuX = false,
+    double? contextMenuY,
+    bool clearContextMenuY = false,
+  }) {
+    return EditorCanvasComponent(
+      panX: panX ?? this.panX,
+      panY: panY ?? this.panY,
+      zoom: zoom ?? this.zoom,
+      draggedEntityId: clearDraggedEntityId ? null : draggedEntityId ?? this.draggedEntityId,
+      connectionStartNodeId: clearConnectionStartNodeId ? null : connectionStartNodeId ?? this.connectionStartNodeId,
+      connectionStartPortId: clearConnectionStartPortId ? null : connectionStartPortId ?? this.connectionStartPortId,
+      connectionDraftX: clearConnectionDraftX ? null : connectionDraftX ?? this.connectionDraftX,
+      connectionDraftY: clearConnectionDraftY ? null : connectionDraftY ?? this.connectionDraftY,
+      previewInputValues: previewInputValues ?? this.previewInputValues,
+      contextMenuNodeId: clearContextMenuNodeId ? null : contextMenuNodeId ?? this.contextMenuNodeId,
+      contextMenuX: clearContextMenuX ? null : contextMenuX ?? this.contextMenuX,
+      contextMenuY: clearContextMenuY ? null : contextMenuY ?? this.contextMenuY,
+    );
+  }
 
   factory EditorCanvasComponent.fromJson(Map<String, dynamic> json) {
     return EditorCanvasComponent(
