@@ -1,49 +1,40 @@
 // FILE: lib/modules/visual_formula_editor/systems/formula_parser_system.dart
 // (English comments for code clarity)
-// MODIFIED v4.0: MAJOR FIX - Changed the catch clause to a more generic
-// 'on Exception' to resolve the 'non_type_in_catch_clause' error.
-// Also removed unused private fields '_world' and '_variables'.
+// MODIFIED v5.0: FINAL FIX - After creating an operator node from text,
+// it now adds an extra empty input port, mirroring the behavior of the
+// dynamic port system for a consistent user experience.
 
 import 'package:expressions/expressions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
-import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/utils/editor_helpers.dart';
 
 /// A system responsible for parsing a mathematical expression string and generating
 /// a corresponding graph of Node and Connection entities with a proper layout.
 class FormulaParserSystem {
-  // Unused fields removed to fix analyzer warnings.
   final double _xStep = 200;
   final double _yStep = 120;
-
-  // A map to track the y-position for each level of the tree to avoid overlaps
   final Map<int, double> _yPositions = {};
 
-  // Constructor no longer needs unused parameters.
   FormulaParserSystem();
 
   List<Entity> parse(String resultKey, String expression) {
     _yPositions.clear();
     final List<Entity> entities = [];
 
-    // Always create the final output node first
     final outputNode = createNodeFromType(NodeType.output, 800, 250);
     outputNode.get<NodeComponent>()!.data['resultKey'] = resultKey;
     entities.add(outputNode);
 
     if (expression.trim().isEmpty) {
-      return entities; // Return just the output node if expression is empty
+      return entities;
     }
 
     try {
       final parsedExpression = Expression.parse(expression);
-
-      // Recursively parse the expression tree, starting at depth 0
       final resultEntity = _parseNode(parsedExpression, 0, entities);
 
-      // Connect the result of the expression to the output node
       if (resultEntity != null) {
         final connection = Entity()
           ..add(ConnectionComponent(
@@ -56,8 +47,6 @@ class FormulaParserSystem {
         entities.add(connection);
       }
     } on Exception catch (e) {
-      // **MAJOR FIX**: Using a more generic 'Exception' type to catch all
-      // possible parsing errors robustly.
       debugPrint("[FormulaParserSystem] Handled parser error: $e");
     } catch (e) {
       debugPrint(
@@ -66,9 +55,7 @@ class FormulaParserSystem {
     return entities;
   }
 
-  /// Recursively parses an expression node and lays out the graph.
   Entity? _parseNode(Expression expression, int depth, List<Entity> entities) {
-    // Calculate position for the current node
     final x = 600 - (depth * _xStep);
     final y = _yPositions.update(depth, (value) => value + _yStep,
         ifAbsent: () => 100.0);
@@ -96,7 +83,6 @@ class FormulaParserSystem {
       operatorNode.add(opComp.copyWith(label: expression.operator.toString()));
       entities.add(operatorNode);
 
-      // Recursively parse children at the next depth level
       final leftEntity = _parseNode(expression.left, depth + 1, entities);
       final rightEntity = _parseNode(expression.right, depth + 1, entities);
 
@@ -120,9 +106,21 @@ class FormulaParserSystem {
           ..add(TagsComponent({'connection_component'}));
         entities.add(conn);
       }
+
+      // **MAJOR FIX**: Add an extra empty input port to operator nodes,
+      // just like the DynamicPortSystem does for visually created nodes.
+      final currentOpComp = operatorNode.get<NodeComponent>()!;
+      final newPortIndex = currentOpComp.inputs.length;
+      final newPortId = 'in_$newPortIndex';
+      final newPortLabel =
+          String.fromCharCode('A'.codeUnitAt(0) + newPortIndex);
+      final newInputs = List<NodePort>.from(currentOpComp.inputs)
+        ..add(NodePort(id: newPortId, label: newPortLabel));
+
+      operatorNode.add(currentOpComp.copyWith(inputs: newInputs));
+
       return operatorNode;
     }
-    // Handle other expression types like UnaryExpression if needed
     return null;
   }
 }

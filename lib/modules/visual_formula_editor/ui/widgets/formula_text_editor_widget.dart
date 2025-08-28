@@ -1,10 +1,10 @@
 // FILE: lib/modules/visual_formula_editor/ui/widgets/formula_text_editor_widget.dart
 // (English comments for code clarity)
-// MODIFIED v3.0: Added debug logging.
+// MODIFIED v3.0: FINAL FIX - Implemented FocusNode to prevent cursor jumps
+// while the user is actively typing.
 
 import 'dart:async';
 import 'dart:ui';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
@@ -27,6 +27,7 @@ class FormulaTextEditorWidget extends StatefulWidget {
 
 class _FormulaTextEditorWidgetState extends State<FormulaTextEditorWidget> {
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode(); // For tracking focus state
   Timer? _debounce;
   bool _isProgrammaticUpdate = false;
 
@@ -36,6 +37,7 @@ class _FormulaTextEditorWidgetState extends State<FormulaTextEditorWidget> {
     widget.renderingSystem
         .getNotifier(widget.editorEntityId)
         .addListener(_onCanvasStateChanged);
+    _focusNode.addListener(_onFocusChanged);
     _onCanvasStateChanged();
   }
 
@@ -53,32 +55,38 @@ class _FormulaTextEditorWidgetState extends State<FormulaTextEditorWidget> {
   }
 
   void _onCanvasStateChanged() {
+    // **MAJOR FIX**: Do not update the text field programmatically
+    // if the user is currently focused on it. This prevents cursor jumps.
+    if (_focusNode.hasFocus) {
+      return;
+    }
+
     final canvasState = widget.renderingSystem
         .get<EditorCanvasComponent>(widget.editorEntityId);
     if (canvasState == null) return;
 
     if (_controller.text != canvasState.currentExpression) {
-      debugPrint(
-          "[Log] FormulaTextEditorWidget: Canvas state changed. Programmatically updating text to '${canvasState.currentExpression}'.");
       _isProgrammaticUpdate = true;
       _controller.text = canvasState.currentExpression;
     }
   }
 
+  void _onFocusChanged() {
+    // When the user unfocuses the text field, sync it with the canonical
+    // expression from the graph one last time.
+    if (!_focusNode.hasFocus) {
+      _onCanvasStateChanged();
+    }
+  }
+
   void _onTextChanged(String value) {
     if (_isProgrammaticUpdate) {
-      debugPrint(
-          "[Log] FormulaTextEditorWidget: Text changed programmatically. Ignoring event.");
       _isProgrammaticUpdate = false;
       return;
     }
 
-    debugPrint(
-        "[Log] FormulaTextEditorWidget: Text changed by user to '$value'. Debouncing event.");
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 750), () {
-      debugPrint(
-          "[Log] FormulaTextEditorWidget: Debounce finished. Sending UpdateFormulaFromTextEvent.");
       widget.renderingSystem.manager?.send(UpdateFormulaFromTextEvent(value));
     });
   }
@@ -87,6 +95,8 @@ class _FormulaTextEditorWidgetState extends State<FormulaTextEditorWidget> {
   void dispose() {
     _debounce?.cancel();
     _controller.dispose();
+    _focusNode.removeListener(_onFocusChanged);
+    _focusNode.dispose();
     widget.renderingSystem
         .getNotifier(widget.editorEntityId)
         .removeListener(_onCanvasStateChanged);
@@ -111,6 +121,7 @@ class _FormulaTextEditorWidgetState extends State<FormulaTextEditorWidget> {
               border: Border.all(color: Colors.white.withOpacity(0.2)),
             ),
             child: TextField(
+              focusNode: _focusNode, // Attach the focus node
               controller: _controller,
               onChanged: _onTextChanged,
               style:
