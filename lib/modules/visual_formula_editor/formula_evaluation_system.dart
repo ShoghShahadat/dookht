@@ -1,7 +1,7 @@
 // FILE: lib/modules/visual_formula_editor/formula_evaluation_system.dart
 // (English comments for code clarity)
-// FIX v1.1: Refactored the system to be event-driven instead of running every frame.
-// This is the primary fix for the infinite loop/hang issue.
+// FIX v2.0: Implemented the missing logic for NodeType.output.
+// The system now correctly calculates and propagates values to output nodes.
 
 import 'package:collection/collection.dart';
 import 'package:nexus/nexus.dart';
@@ -32,7 +32,6 @@ class FormulaEvaluationSystem extends System {
 
     // 1. Clear previous states
     for (final node in nodes) {
-      // Only remove the state if it exists to avoid unnecessary notifications.
       if (node.has<NodeStateComponent>()) {
         node.remove<NodeStateComponent>();
       }
@@ -96,7 +95,6 @@ class FormulaEvaluationSystem extends System {
                 outputValues['result'] = a * b;
                 break;
               case '/':
-                // Avoid division by zero
                 if (b == 0) {
                   error = 'تقسیم بر صفر';
                 } else {
@@ -107,6 +105,15 @@ class FormulaEvaluationSystem extends System {
           }
           break;
         case NodeType.output:
+          // *** BUG FIX: Implemented the logic for output nodes ***
+          // An output node simply takes its input and presents it.
+          final value = inputs['value'];
+          if (value != null) {
+            outputValues['value'] = value;
+          } else {
+            // If not connected, show nothing.
+          }
+          break;
         case NodeType.condition:
           // TODO: Implement later
           break;
@@ -120,8 +127,6 @@ class FormulaEvaluationSystem extends System {
   }
 
   List<Entity> _topologicalSort(List<Entity> nodes, List<Entity> connections) {
-    // Simple implementation, assumes no cyclic dependencies for now.
-    // A real implementation would need cycle detection.
     final inDegree = <EntityId, int>{};
     final graph = <EntityId, List<EntityId>>{};
 
@@ -158,8 +163,6 @@ class FormulaEvaluationSystem extends System {
     }
 
     if (processedCount != nodes.length) {
-      // This indicates a cycle in the graph.
-      // A more robust implementation would identify and report the cycle.
       print(
           "Error: Cycle detected in the formula graph. Evaluation may be incorrect.");
     }
@@ -168,8 +171,8 @@ class FormulaEvaluationSystem extends System {
   }
 
   @override
-  bool matches(Entity entity) => false; // Now purely event-driven
+  bool matches(Entity entity) => false;
 
   @override
-  void update(Entity entity, double dt) {} // No longer used
+  void update(Entity entity, double dt) {}
 }

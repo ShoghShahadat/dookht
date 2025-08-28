@@ -1,6 +1,8 @@
 // FILE: lib/modules/visual_formula_editor/ui/widgets/interactive_canvas_layer.dart
 // (English comments for code clarity)
-// This widget is responsible for the main canvas, including the transform and gesture detection.
+// FIX v2.0: Added `behavior: HitTestBehavior.opaque` to the GestureDetector.
+// This is a CRITICAL fix that makes the entire canvas area interactive,
+// allowing panning in empty space and interaction with newly added nodes.
 
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
@@ -31,6 +33,8 @@ class InteractiveCanvasLayer extends StatelessWidget {
       ..scale(canvasState.zoom);
 
     return GestureDetector(
+      // *** BUG FIX: Make the entire area interactive ***
+      behavior: HitTestBehavior.opaque,
       onScaleStart: (details) {
         renderingSystem.manager?.send(CanvasScaleStartEvent(
           focalX: details.localFocalPoint.dx,
@@ -71,6 +75,7 @@ class InteractiveCanvasLayer extends StatelessWidget {
                 connectionIds: connectionIds,
                 canvasState: canvasState,
               ),
+              // Ensure the painter covers the whole area to be interactive
               child: const SizedBox.expand(),
             ),
             ...nodeIds.map((id) => NodeWidget(
