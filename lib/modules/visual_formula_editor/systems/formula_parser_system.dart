@@ -1,8 +1,9 @@
 // FILE: lib/modules/visual_formula_editor/systems/formula_parser_system.dart
 // (English comments for code clarity)
-// MODIFIED v6.0: FINAL, ADVANCED FIX - Implemented a recursive "flattening"
-// algorithm to convert chained operations (e.g., 1+2+3+4) into a single,
-// multi-input operator node for a much cleaner and more intuitive graph.
+// MODIFIED v8.0: FINAL, ROBUST FIX for Persian variables. Implemented a
+// variable mapping system. Persian phrases are now replaced with safe, temporary
+// ASCII identifiers before parsing, and then mapped back to the original
+// Persian for display. This is the definitive solution.
 
 import 'package:expressions/expressions.dart';
 import 'package:flutter/foundation.dart';
@@ -16,8 +17,32 @@ class FormulaParserSystem {
   final double _xStep = 200;
   final double _yStep = 120;
   final Map<int, double> _yPositions = {};
+  // Maps sanitized variable names (e.g., __var0__) to their original display names (e.g., "عرض پارچه").
+  final Map<String, String> _sanitizedToOriginal = {};
 
   FormulaParserSystem();
+
+  /// Pre-processes the expression to handle multi-word and non-ASCII variables.
+  String _sanitizeExpression(String expression) {
+    _sanitizedToOriginal.clear();
+    int varIndex = 0;
+    // This regex finds sequences of non-operator, non-numeric, non-grouping characters.
+    // It correctly captures multi-word Persian and English phrases.
+    final variableRegex =
+        RegExp(r'([a-zA-Z\u0600-\u06FF_][a-zA-Z0-9\u0600-\u06FF_\s]*)');
+
+    return expression.replaceAllMapped(variableRegex, (match) {
+      final originalPhrase = match.group(0)!.trim();
+      // Ignore numbers that might be caught by the regex
+      if (double.tryParse(originalPhrase) != null) {
+        return originalPhrase;
+      }
+      // Generate a safe, temporary variable name
+      final sanitized = '__var${varIndex++}__';
+      _sanitizedToOriginal[sanitized] = originalPhrase;
+      return sanitized;
+    });
+  }
 
   List<Entity> parse(String resultKey, String expression) {
     _yPositions.clear();
@@ -32,7 +57,8 @@ class FormulaParserSystem {
     }
 
     try {
-      final parsedExpression = Expression.parse(expression);
+      final sanitizedExpression = _sanitizeExpression(expression);
+      final parsedExpression = Expression.parse(sanitizedExpression);
       final resultEntity = _parseNode(parsedExpression, 0, entities);
 
       if (resultEntity != null) {
@@ -55,7 +81,6 @@ class FormulaParserSystem {
     return entities;
   }
 
-  /// Recursively flattens a chain of binary expressions with the same operator.
   List<Expression> _flattenExpression(
       BinaryExpression expression, String operator) {
     final List<Expression> operands = [];
@@ -76,7 +101,6 @@ class FormulaParserSystem {
     } else {
       operands.add(expression.right);
     }
-
     return operands;
   }
 
@@ -94,11 +118,13 @@ class FormulaParserSystem {
         return node;
       }
     } else if (expression is Variable) {
-      final varName = expression.identifier.name;
+      final sanitizedName = expression.identifier.name;
+      final displayName = _sanitizedToOriginal[sanitizedName] ?? sanitizedName;
+
       final node = createNodeFromType(NodeType.input, x, y);
       final nodeComp = node.get<NodeComponent>()!;
-      nodeComp.data['inputId'] = varName;
-      node.add(nodeComp.copyWith(label: varName));
+      nodeComp.data['inputId'] = sanitizedName;
+      node.add(nodeComp.copyWith(label: displayName));
       entities.add(node);
       return node;
     } else if (expression is BinaryExpression) {
@@ -109,7 +135,6 @@ class FormulaParserSystem {
       final opComp = operatorNode.get<NodeComponent>()!;
       opComp.data['operator'] = operator;
 
-      // Clear default inputs and build new ones
       final newInputs = <NodePort>[];
       for (int i = 0; i < operands.length; i++) {
         final portId = 'in_$i';
@@ -130,7 +155,6 @@ class FormulaParserSystem {
         }
       }
 
-      // Add one extra empty port for chaining
       final newPortIndex = newInputs.length;
       final newPortId = 'in_$newPortIndex';
       final newPortLabel =
