@@ -1,6 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/ui/widgets/node_settings_panel.dart
 // (English comments for code clarity)
-// MODIFIED v2.0: Added settings panels for Input and Output nodes to allow renaming.
+// MODIFIED v3.0: Added a settings panel for Condition nodes.
 
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
@@ -30,6 +30,8 @@ class NodeSettingsPanel extends StatelessWidget {
         return _buildLabelSettings(context, "ورودی");
       case NodeType.output:
         return _buildLabelSettings(context, "خروجی");
+      case NodeType.condition:
+        return _buildConditionSettings(context); // Added this case
       default:
         return Container(
           padding: const EdgeInsets.all(20),
@@ -141,6 +143,42 @@ class NodeSettingsPanel extends StatelessWidget {
             },
           ),
           const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  /// Builds the settings UI for a Condition node.
+  Widget _buildConditionSettings(BuildContext context) {
+    final currentOperator = node.data['operator'] as String? ?? '==';
+    const operators = ['==', '!=', '>', '<', '>=', '<='];
+
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('تغییر عملگر مقایسه',
+              style: TextStyle(color: Colors.white, fontSize: 18)),
+          const SizedBox(height: 20),
+          DropdownButton<String>(
+            value: currentOperator,
+            dropdownColor: Colors.grey[800],
+            style: const TextStyle(color: Colors.white),
+            items: operators
+                .map((op) => DropdownMenuItem(
+                    value: op,
+                    child: Text(op,
+                        style: const TextStyle(
+                            fontSize: 24, fontFamily: 'monospace'))))
+                .toList(),
+            onChanged: (newOp) {
+              if (newOp != null) {
+                renderingSystem.manager?.send(UpdateNodeDataEvent(
+                    nodeId: nodeId, newData: {'operator': newOp}));
+              }
+            },
+          ),
         ],
       ),
     );

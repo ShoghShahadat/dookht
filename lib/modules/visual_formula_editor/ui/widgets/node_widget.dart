@@ -1,6 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/ui/widgets/node_widget.dart
 // (English comments for code clarity)
-// REFACTORED v4.0: Enabled settings icon for input and output nodes.
+// REFACTORED v5.0: Enabled settings icon for condition nodes.
 
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
@@ -149,6 +149,7 @@ class NodeWidget extends StatelessWidget {
     return type == NodeType.operator ||
         type == NodeType.constant ||
         type == NodeType.input ||
-        type == NodeType.output;
+        type == NodeType.output ||
+        type == NodeType.condition; // Added condition node
   }
 }

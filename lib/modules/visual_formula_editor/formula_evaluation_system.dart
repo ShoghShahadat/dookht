@@ -1,7 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/formula_evaluation_system.dart
 // (English comments for code clarity)
-// FIX v5.0: Added a default case to the operator switch statement to make it robust
-// and satisfy Dart's null safety analysis completely.
+// FIX v6.0: Implemented the full logic for NodeType.condition, including all comparison operators.
 
 import 'package:collection/collection.dart';
 import 'package:nexus/nexus.dart';
@@ -104,7 +103,6 @@ class FormulaEvaluationSystem extends System {
                 }
                 break;
               default:
-                // This default case makes the logic robust.
                 error = 'عملگر ناشناخته';
                 break;
             }
@@ -120,6 +118,39 @@ class FormulaEvaluationSystem extends System {
           }
           break;
         case NodeType.condition:
+          final a = inputs['in_a'] as num?;
+          final b = inputs['in_b'] as num?;
+          final passValue = inputs['pass_value'];
+          final operator = nodeComp.data['operator'] as String? ?? '==';
+
+          if (a != null && b != null && passValue != null) {
+            bool conditionMet = false;
+            switch (operator) {
+              case '==':
+                conditionMet = a == b;
+                break;
+              case '!=':
+                conditionMet = a != b;
+                break;
+              case '>':
+                conditionMet = a > b;
+                break;
+              case '<':
+                conditionMet = a < b;
+                break;
+              case '>=':
+                conditionMet = a >= b;
+                break;
+              case '<=':
+                conditionMet = a <= b;
+                break;
+            }
+            if (conditionMet) {
+              outputValues['result'] = passValue;
+            }
+          } else {
+            // One of the inputs is not connected, do nothing.
+          }
           break;
       }
     } catch (e) {

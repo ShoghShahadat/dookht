@@ -1,6 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/utils/editor_helpers.dart
 // (English comments for code clarity)
-// MODIFIED v2.0: Updated operator node creation to start with two dynamic inputs.
+// MODIFIED v3.0: Updated the factory for NodeType.condition to its new structure.
 
 import 'dart:math';
 import 'dart:ui';
@@ -89,7 +89,7 @@ Offset? getPortPosition(NodeComponent node, String portId, bool isOutput) {
 Entity createNodeFromType(NodeType type, double x, double y) {
   final random = Random();
   final position = PositionComponent(x: x, y: y);
-  NodeComponent nodeComp;
+  late NodeComponent nodeComp;
 
   switch (type) {
     case NodeType.input:
@@ -141,15 +141,18 @@ Entity createNodeFromType(NodeType type, double x, double y) {
       break;
     case NodeType.condition:
       nodeComp = NodeComponent(
-          label: 'اگر',
+          label: 'شرط',
           type: type,
           position: position
             ..width = 150
-            ..height = 120,
+            ..height = 140, // Increased height for 3 inputs
+          data: {
+            'operator': '=='
+          }, // Default operator
           inputs: [
-            NodePort(id: 'condition', label: 'شرط'),
-            NodePort(id: 'if_true', label: 'در صورت صحت'),
-            NodePort(id: 'if_false', label: 'در صورت غلط')
+            NodePort(id: 'in_a', label: 'مقدار اول'),
+            NodePort(id: 'in_b', label: 'مقدار دوم'),
+            NodePort(id: 'pass_value', label: 'مقدار عبوری'),
           ],
           outputs: [
             NodePort(id: 'result', label: 'نتیجه')
