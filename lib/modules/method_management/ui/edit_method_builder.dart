@@ -1,3 +1,8 @@
+// FILE: lib/modules/method_management/ui/edit_method_builder.dart
+// (English comments for code clarity)
+// MODIFIED v2.0: Added an icon button next to each formula field to open
+// the visual editor for that specific formula.
+
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
@@ -5,7 +10,6 @@ import 'package:tailor_assistant/modules/customers/customer_events.dart';
 import 'package:tailor_assistant/modules/method_management/method_management_events.dart';
 import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
 import 'package:tailor_assistant/modules/ui/view_manager/view_manager_component.dart';
-import '../../ui/rendering_system.dart';
 
 class EditMethodBuilder implements IWidgetBuilder {
   @override
@@ -40,14 +44,10 @@ class _EditMethodWidget extends StatefulWidget {
 
 class _EditMethodWidgetState extends State<_EditMethodWidget> {
   late TextEditingController _nameController;
-
-  // State for dynamic formulas
   late List<Formula> _formulas;
   late List<TextEditingController> _formulaLabelControllers;
   late List<TextEditingController> _formulaExpressionControllers;
   late List<TextEditingController> _formulaResultKeyControllers;
-
-  // State for dynamic variables
   late List<DynamicVariable> _variables;
   late List<TextEditingController> _varLabelControllers;
   late List<TextEditingController> _varKeyControllers;
@@ -65,8 +65,6 @@ class _EditMethodWidgetState extends State<_EditMethodWidget> {
     if (method == null) return;
 
     _nameController = TextEditingController(text: method.name);
-
-    // Initialize variables
     _variables = List.from(method.variables);
     _varLabelControllers =
         _variables.map((v) => TextEditingController(text: v.label)).toList();
@@ -75,8 +73,6 @@ class _EditMethodWidgetState extends State<_EditMethodWidget> {
     _varDefaultValueControllers = _variables
         .map((v) => TextEditingController(text: v.defaultValue.toString()))
         .toList();
-
-    // Initialize formulas
     _formulas = List.from(method.formulas);
     _formulaLabelControllers =
         _formulas.map((f) => TextEditingController(text: f.label)).toList();
@@ -158,10 +154,13 @@ class _EditMethodWidgetState extends State<_EditMethodWidget> {
 
     final updatedFormulas = <Formula>[];
     for (int i = 0; i < _formulas.length; i++) {
+      // Preserve existing visual graph data when saving
+      final existingFormula = _formulas[i];
       updatedFormulas.add(Formula(
         resultKey: _formulaResultKeyControllers[i].text,
         label: _formulaLabelControllers[i].text,
         expression: _formulaExpressionControllers[i].text,
+        visualGraphData: existingFormula.visualGraphData,
       ));
     }
 
@@ -328,6 +327,7 @@ class _EditMethodWidgetState extends State<_EditMethodWidget> {
 
   List<Widget> _buildFormulaEditors(Color textColor) {
     List<Widget> formulaWidgets = List.generate(_formulas.length, (index) {
+      final formula = _formulas[index];
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -347,9 +347,28 @@ class _EditMethodWidgetState extends State<_EditMethodWidget> {
               'کلید نتیجه (انگلیسی، بدون فاصله)', textColor,
               isExpression: true),
           const SizedBox(height: 8),
-          _buildTextField(
-              _formulaExpressionControllers[index], 'عبارت فرمول', textColor,
-              isExpression: true),
+          // MODIFIED: Added icon button for visual editor
+          Row(
+            children: [
+              Expanded(
+                child: _buildTextField(_formulaExpressionControllers[index],
+                    'عبارت فرمول', textColor,
+                    isExpression: true),
+              ),
+              IconButton(
+                icon: Icon(Icons.schema_outlined,
+                    color: textColor.withOpacity(0.8)),
+                tooltip: 'ویرایشگر بصری فرمول',
+                onPressed: () {
+                  widget.renderingSystem.manager
+                      ?.send(ShowVisualFormulaEditorEvent(
+                    methodId: widget.methodId,
+                    formulaResultKey: formula.resultKey,
+                  ));
+                },
+              )
+            ],
+          ),
           if (index < _formulas.length - 1)
             const Divider(color: Colors.white24, height: 32),
         ],

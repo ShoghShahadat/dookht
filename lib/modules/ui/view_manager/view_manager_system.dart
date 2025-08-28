@@ -1,5 +1,7 @@
 // FILE: lib/modules/ui/view_manager/view_manager_system.dart
 // (English comments for code clarity)
+// MODIFIED v2.0: The event listener for `ShowVisualFormulaEditorEvent` now
+// correctly sets both the `activeMethodId` and `activeFormulaKey`.
 
 import 'package:collection/collection.dart';
 import 'package:nexus/nexus.dart';
@@ -21,20 +23,22 @@ class ViewManagerSystem extends System {
         (_) => _changeView(AppView.methodManagement));
     listen<ShowEditMethodEvent>(
         (event) => _changeView(AppView.editMethod, methodId: event.methodId));
-    // ADDED: Listen for the event to show the visual editor
-    listen<ShowVisualFormulaEditorEvent>((event) =>
-        _changeView(AppView.visualFormulaEditor, methodId: event.methodId));
+    listen<ShowVisualFormulaEditorEvent>((event) => _changeView(
+        AppView.visualFormulaEditor,
+        methodId: event.methodId,
+        formulaKey: event.formulaResultKey));
   }
 
-  void _changeView(AppView view, {EntityId? customerId, EntityId? methodId}) {
+  void _changeView(AppView view,
+      {EntityId? customerId, EntityId? methodId, String? formulaKey}) {
     final viewManager = _getViewManagerEntity();
     if (viewManager != null) {
-      // Get current state to preserve other active IDs if they are not being changed
       final currentState = viewManager.get<ViewStateComponent>();
       viewManager.add(ViewStateComponent(
         currentView: view,
         activeCustomerId: customerId ?? currentState?.activeCustomerId,
         activeMethodId: methodId ?? currentState?.activeMethodId,
+        activeFormulaKey: formulaKey ?? currentState?.activeFormulaKey,
       ));
     }
   }
@@ -45,7 +49,7 @@ class ViewManagerSystem extends System {
   }
 
   @override
-  bool matches(Entity entity) => false; // Purely event-driven.
+  bool matches(Entity entity) => false;
 
   @override
   void update(Entity entity, double dt) {}

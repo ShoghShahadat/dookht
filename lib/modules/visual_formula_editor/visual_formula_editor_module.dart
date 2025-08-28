@@ -1,10 +1,10 @@
 // FILE: lib/modules/visual_formula_editor/visual_formula_editor_module.dart
 // (English comments for code clarity)
-// MODIFIED v2.0: Added the new DynamicPortSystem to the module's system providers.
+// MODIFIED v3.0: The module no longer creates static nodes. It now includes
+// the new lifecycle system responsible for dynamically loading the correct graph.
 
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
-import 'package:tailor_assistant/modules/visual_formula_editor/editor_events.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/formula_evaluation_system.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/systems/editor_connection_management_system.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/systems/editor_context_menu_system.dart';
@@ -13,9 +13,8 @@ import 'package:tailor_assistant/modules/visual_formula_editor/systems/editor_in
 import 'package:tailor_assistant/modules/visual_formula_editor/systems/editor_node_management_system.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/systems/editor_state_system.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/systems/dynamic_port_system.dart';
-import 'package:tailor_assistant/modules/visual_formula_editor/utils/editor_helpers.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/systems/visual_formula_lifecycle_system.dart';
 
-// A helper class to satisfy the SystemProvider interface.
 class _SingleSystemProvider implements SystemProvider {
   final List<System> _systems;
   _SingleSystemProvider(this._systems);
@@ -23,32 +22,17 @@ class _SingleSystemProvider implements SystemProvider {
   List<System> get systems => _systems;
 }
 
-/// A Nexus module that sets up the entities and systems for the "Visual Formula Editor" page.
 class VisualFormulaEditorModule extends NexusModule {
   @override
   void onLoad(NexusWorld world) {
+    // The main entity for the editor page itself.
     final visualEditorPage = Entity()
       ..add(TagsComponent({'visual_formula_editor_page'}))
-      ..add(EditorCanvasComponent(
-        previewInputValues: {'bust_circumference': 92.0},
-      ))
+      ..add(EditorCanvasComponent()) // Initialize with default state
       ..add(LifecyclePolicyComponent(isPersistent: true));
     world.addEntity(visualEditorPage);
 
-    // Create some sample nodes with ports
-    final inputNode = createNodeFromType(NodeType.input, 50, 100);
-    world.addEntity(inputNode);
-
-    final constantNode = createNodeFromType(NodeType.constant, 50, 250);
-    world.addEntity(constantNode);
-
-    final operatorNode = createNodeFromType(NodeType.operator, 300, 150);
-    world.addEntity(operatorNode);
-
-    final outputNode = createNodeFromType(NodeType.output, 550, 150);
-    world.addEntity(outputNode);
-
-    Future.microtask(() => world.eventBus.fire(RecalculateGraphEvent()));
+    // Node creation is now handled by VisualFormulaLifecycleSystem
   }
 
   @override
@@ -57,14 +41,17 @@ class VisualFormulaEditorModule extends NexusModule {
   @override
   List<SystemProvider> get systemProviders => [
         _SingleSystemProvider([
+          // Core editor systems
           EditorGestureSystem(),
           EditorInteractionSystem(),
           EditorNodeManagementSystem(),
           EditorConnectionManagementSystem(),
           EditorContextMenuSystem(),
           EditorStateSystem(),
-          DynamicPortSystem(), // Added the new system
+          DynamicPortSystem(),
           FormulaEvaluationSystem(),
+          // New lifecycle system for loading/saving
+          VisualFormulaLifecycleSystem(),
         ])
       ];
 }

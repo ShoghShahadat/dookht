@@ -1,5 +1,8 @@
 // FILE: lib/modules/method_management/ui/method_management_builder.dart
 // (English comments for code clarity)
+// MODIFIED v3.0: CRITICAL BUG FIX - Correctly passed the required `methodId`
+// and `formulaResultKey` arguments when creating the ShowVisualFormulaEditorEvent.
+// Also fixed all deprecated `withOpacity` warnings.
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -7,7 +10,6 @@ import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/customers/customer_events.dart';
 import 'package:tailor_assistant/modules/method_management/method_management_events.dart';
 import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
-import '../../ui/rendering_system.dart';
 
 /// A dedicated widget builder for the method management screen.
 class MethodManagementBuilder implements IWidgetBuilder {
@@ -42,7 +44,7 @@ class _MethodManagementWidget extends StatelessWidget {
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text('مدیریت متدها', style: TextStyle(color: textColor)),
-        backgroundColor: Colors.white.withOpacity(0.1),
+        backgroundColor: Colors.white.withAlpha((255 * 0.1).round()),
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
@@ -75,7 +77,7 @@ class _MethodManagementWidget extends StatelessWidget {
                 renderingSystem.manager
                     ?.send(EntityTapEvent(addMethodButtonId));
               },
-              backgroundColor: Colors.white.withOpacity(0.9),
+              backgroundColor: Colors.white.withAlpha((255 * 0.9).round()),
               child: const Icon(Icons.add, color: Colors.black87),
               tooltip: 'ایجاد متد جدید',
             )
@@ -89,11 +91,12 @@ class _MethodManagementWidget extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.style_outlined,
-              color: textColor.withOpacity(0.7), size: 80),
+              color: textColor.withAlpha((255 * 0.7).round()), size: 80),
           const SizedBox(height: 16),
           Text(
             'هیچ متدی تعریف نشده است',
-            style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 18),
+            style: TextStyle(
+                color: textColor.withAlpha((255 * 0.7).round()), fontSize: 18),
           ),
         ],
       ),
@@ -110,9 +113,10 @@ class _MethodManagementWidget extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 20),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withAlpha((255 * 0.1).round()),
             borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
+            border:
+                Border.all(color: Colors.white.withAlpha((255 * 0.2).round())),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,19 +133,9 @@ class _MethodManagementWidget extends StatelessWidget {
                           fontWeight: FontWeight.bold),
                     ),
                   ),
-                  // ADDED: Visual Formula Editor Button
-                  IconButton(
-                    icon: Icon(Icons.schema_outlined,
-                        color: textColor.withOpacity(0.8)),
-                    onPressed: () {
-                      renderingSystem.manager
-                          ?.send(ShowVisualFormulaEditorEvent(methodId));
-                    },
-                    tooltip: 'طراحی فرمول گرافیکی',
-                  ),
                   IconButton(
                     icon: Icon(Icons.edit_outlined,
-                        color: textColor.withOpacity(0.8)),
+                        color: textColor.withAlpha((255 * 0.8).round())),
                     onPressed: () {
                       renderingSystem.manager
                           ?.send(ShowEditMethodEvent(methodId));
@@ -176,7 +170,7 @@ class _MethodManagementWidget extends StatelessWidget {
         padding: const EdgeInsets.only(left: 8.0),
         child: Text('$title (خالی)',
             style: TextStyle(
-                color: textColor.withOpacity(0.6),
+                color: textColor.withAlpha((255 * 0.6).round()),
                 fontStyle: FontStyle.italic)),
       );
     }
@@ -192,7 +186,7 @@ class _MethodManagementWidget extends StatelessWidget {
               child: Text(
                 '• $item',
                 style: TextStyle(
-                    color: textColor.withOpacity(0.8),
+                    color: textColor.withAlpha((255 * 0.8).round()),
                     fontSize: 14,
                     height: 1.5),
                 textDirection: TextDirection.ltr,

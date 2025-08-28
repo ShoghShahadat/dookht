@@ -1,5 +1,7 @@
 // FILE: lib/modules/method_management/method_management_events.dart
 // (English comments for code clarity)
+// MODIFIED v2.0: `ShowVisualFormulaEditorEvent` now carries the specific
+// `formulaResultKey` to identify which formula to edit.
 
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
@@ -36,9 +38,11 @@ class DeletePatternMethodEvent {
   DeletePatternMethodEvent(this.methodId);
 }
 
-/// ADDED: Event fired to show the new visual formula editor page.
+/// Event fired to show the new visual formula editor page for a specific formula.
 class ShowVisualFormulaEditorEvent {
   final EntityId methodId;
+  final String formulaResultKey;
 
-  ShowVisualFormulaEditorEvent(this.methodId);
+  ShowVisualFormulaEditorEvent(
+      {required this.methodId, required this.formulaResultKey});
 }

@@ -1,5 +1,7 @@
 // FILE: lib/modules/ui/view_manager/view_manager_component.dart
 // (English comments for code clarity)
+// MODIFIED v2.0: Added `activeFormulaKey` to track which specific formula
+// is being edited in the visual editor.
 
 import 'package:nexus/nexus.dart';
 
@@ -10,7 +12,7 @@ enum AppView {
   calculationPage,
   methodManagement,
   editMethod,
-  visualFormulaEditor, // ADDED: The new view for the visual editor
+  visualFormulaEditor,
 }
 
 /// A serializable component that holds the current view state of the application.
@@ -18,11 +20,13 @@ class ViewStateComponent extends Component with SerializableComponent {
   final AppView currentView;
   final EntityId? activeCustomerId;
   final EntityId? activeMethodId;
+  final String? activeFormulaKey; // NEW: e.g., 'bodiceBustWidth'
 
   ViewStateComponent({
     this.currentView = AppView.customerList,
     this.activeCustomerId,
     this.activeMethodId,
+    this.activeFormulaKey,
   });
 
   factory ViewStateComponent.fromJson(Map<String, dynamic> json) {
@@ -30,6 +34,7 @@ class ViewStateComponent extends Component with SerializableComponent {
       currentView: AppView.values[json['currentView'] as int],
       activeCustomerId: json['activeCustomerId'] as EntityId?,
       activeMethodId: json['activeMethodId'] as EntityId?,
+      activeFormulaKey: json['activeFormulaKey'] as String?,
     );
   }
 
@@ -38,8 +43,10 @@ class ViewStateComponent extends Component with SerializableComponent {
         'currentView': currentView.index,
         'activeCustomerId': activeCustomerId,
         'activeMethodId': activeMethodId,
+        'activeFormulaKey': activeFormulaKey,
       };
 
   @override
-  List<Object?> get props => [currentView, activeCustomerId, activeMethodId];
+  List<Object?> get props =>
+      [currentView, activeCustomerId, activeMethodId, activeFormulaKey];
 }

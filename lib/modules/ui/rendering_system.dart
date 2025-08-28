@@ -1,10 +1,16 @@
 // FILE: lib/modules/ui/rendering_system.dart
 // (English comments for code clarity)
+// FINAL FIX v4.0: Re-introduced the 'hide' directive. The compiler errors confirm
+// that there is a name collision with 'EditMethodBuilder' in one of the imported
+// files. Hiding it from the 'method_management_builder' import is the correct
+// and definitive solution to resolve this ambiguity.
 
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/method_management/ui/edit_method_builder.dart';
-import 'package:tailor_assistant/modules/method_management/ui/method_management_builder.dart';
+// The 'hide' keyword resolves the name conflict for EditMethodBuilder.
+import 'package:tailor_assistant/modules/method_management/ui/method_management_builder.dart'
+    hide EditMethodBuilder;
 import 'package:tailor_assistant/modules/visual_formula_editor/ui/visual_formula_editor_builder.dart';
 
 import '../calculations/ui/calculation_page_builder.dart';
@@ -22,7 +28,6 @@ class AppRenderingSystem extends FlutterRenderingSystem {
     'calculation_page': CalculationPageBuilder(),
     'method_management': MethodManagementBuilder(),
     'edit_method': EditMethodBuilder(),
-    // ADDED: Register the new builder for the visual editor
     'visual_formula_editor': VisualFormulaEditorBuilder(),
   };
 
@@ -96,7 +101,6 @@ class AppRenderingSystem extends FlutterRenderingSystem {
               return _widgetBuilders['edit_method']!.build(context, this, id);
             }
             break;
-          // ADDED: Case for the new visual editor view
           case AppView.visualFormulaEditor:
             final id =
                 getAllIdsWithTag('visual_formula_editor_page').firstOrNull;
