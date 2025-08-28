@@ -1,8 +1,7 @@
 // FILE: lib/modules/visual_formula_editor/systems/editor_gesture_system.dart
 // (English comments for code clarity)
-// REFACTORED v1.2: A complete overhaul for a more intuitive gesture system.
-// - Scale is now ONLY for pan/zoom.
-// - A simple Pan (tap and drag) is now used for node dragging and connecting.
+// REFACTORED v1.4: Merged all Pan and Scale logic into Scale handlers to resolve the Flutter GestureDetector conflict.
+// The system now correctly handles panning, zooming, node dragging, and connection creation through a single set of scale events.
 
 import 'package:collection/collection.dart';
 import 'package:nexus/nexus.dart';
@@ -24,15 +23,9 @@ class EditorGestureSystem extends System {
   @override
   void onAddedToWorld(NexusWorld world) {
     super.onAddedToWorld(world);
-    // Pan and Zoom gestures (typically two-finger)
     listen<CanvasScaleStartEvent>(_onScaleStart);
     listen<CanvasScaleUpdateEvent>(_onScaleUpdate);
     listen<CanvasScaleEndEvent>(_onScaleEnd);
-
-    // Node Dragging and Connection gestures (one-finger drag)
-    listen<CanvasPanStartEvent>(_onPanStart);
-    listen<CanvasPanUpdateEvent>(_onPanUpdate);
-    listen<CanvasPanEndEvent>(_onPanEnd);
   }
 
   Entity? _getCanvasEntity() {
@@ -40,51 +33,7 @@ class EditorGestureSystem extends System {
         .firstWhereOrNull((e) => e.has<EditorCanvasComponent>());
   }
 
-  // --- Pan and Zoom Logic (Scale Gestures) ---
-
   void _onScaleStart(CanvasScaleStartEvent event) {
-    _mode = InteractionMode.panning;
-    _lastFocalX = event.focalX;
-    _lastFocalY = event.focalY;
-  }
-
-  void _onScaleUpdate(CanvasScaleUpdateEvent event) {
-    if (_mode != InteractionMode.panning) return;
-
-    final canvasEntity = _getCanvasEntity();
-    if (canvasEntity == null) return;
-    final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
-
-    if (event.scale != 1.0) {
-      // Zooming
-      final newZoom = (canvasState.zoom * event.scale).clamp(0.2, 3.0);
-      final panX = event.focalX -
-          (event.focalX - canvasState.panX) * (newZoom / canvasState.zoom);
-      final panY = event.focalY -
-          (event.focalY - canvasState.panY) * (newZoom / canvasState.zoom);
-      canvasEntity
-          .add(canvasState.copyWith(zoom: newZoom, panX: panX, panY: panY));
-    } else {
-      // Panning
-      canvasEntity.add(canvasState.copyWith(
-        panX: canvasState.panX + (event.focalX - _lastFocalX),
-        panY: canvasState.panY + (event.focalY - _lastFocalY),
-      ));
-    }
-
-    _lastFocalX = event.focalX;
-    _lastFocalY = event.focalY;
-  }
-
-  void _onScaleEnd(CanvasScaleEndEvent event) {
-    if (_mode == InteractionMode.panning) {
-      _mode = InteractionMode.none;
-    }
-  }
-
-  // --- Node Dragging & Connection Logic (Pan Gestures) ---
-
-  void _onPanStart(CanvasPanStartEvent event) {
     final canvasEntity = _getCanvasEntity();
     if (canvasEntity == null) return;
     final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
@@ -93,8 +42,8 @@ class EditorGestureSystem extends System {
       world.eventBus.fire(HideContextMenuEvent());
     }
 
-    final canvasX = (event.localX - canvasState.panX) / canvasState.zoom;
-    final canvasY = (event.localY - canvasState.panY) / canvasState.zoom;
+    final canvasX = (event.focalX - canvasState.panX) / canvasState.zoom;
+    final canvasY = (event.focalY - canvasState.panY) / canvasState.zoom;
 
     final nodeHit = getNodeAt(world, canvasX, canvasY);
 
@@ -105,7 +54,6 @@ class EditorGestureSystem extends System {
               .get<NodeComponent>()!
               .outputs
               .any((p) => p.id == portHit.port.id)) {
-        // Started on an output port -> Create Connection
         _mode = InteractionMode.creatingConnection;
         _activeNodeId = nodeHit.id;
         _activePortId = portHit.port.id;
@@ -116,14 +64,17 @@ class EditorGestureSystem extends System {
           connectionDraftY: portHit.y,
         ));
       } else {
-        // Started on a node body -> Drag Node
         _mode = InteractionMode.draggingNode;
         _activeNodeId = nodeHit.id;
       }
+    } else {
+      _mode = InteractionMode.panning;
     }
+    _lastFocalX = event.focalX;
+    _lastFocalY = event.focalY;
   }
 
-  void _onPanUpdate(CanvasPanUpdateEvent event) {
+  void _onScaleUpdate(CanvasScaleUpdateEvent event) {
     final canvasEntity = _getCanvasEntity();
     if (canvasEntity == null) return;
     final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
@@ -144,24 +95,44 @@ class EditorGestureSystem extends System {
         break;
 
       case InteractionMode.creatingConnection:
-        final canvasX = (event.localX - canvasState.panX) / canvasState.zoom;
-        final canvasY = (event.localY - canvasState.panY) / canvasState.zoom;
+        final draftX = (event.focalX - canvasState.panX) / canvasState.zoom;
+        final draftY = (event.focalY - canvasState.panY) / canvasState.zoom;
         canvasEntity.add(canvasState.copyWith(
-          connectionDraftX: canvasX,
-          connectionDraftY: canvasY,
+          connectionDraftX: draftX,
+          connectionDraftY: draftY,
         ));
         break;
-      default:
+
+      case InteractionMode.panning:
+        if (event.scale != 1.0) {
+          final newZoom = (canvasState.zoom * event.scale).clamp(0.2, 3.0);
+          final panX = event.focalX -
+              (event.focalX - canvasState.panX) * (newZoom / canvasState.zoom);
+          final panY = event.focalY -
+              (event.focalY - canvasState.panY) * (newZoom / canvasState.zoom);
+          canvasEntity
+              .add(canvasState.copyWith(zoom: newZoom, panX: panX, panY: panY));
+        } else {
+          canvasEntity.add(canvasState.copyWith(
+            panX: canvasState.panX + (event.focalX - _lastFocalX),
+            panY: canvasState.panY + (event.focalY - _lastFocalY),
+          ));
+        }
+        break;
+
+      case InteractionMode.none:
         break;
     }
+    _lastFocalX = event.focalX;
+    _lastFocalY = event.focalY;
   }
 
-  void _onPanEnd(CanvasPanEndEvent event) {
+  void _onScaleEnd(CanvasScaleEndEvent event) {
     if (_mode == InteractionMode.creatingConnection) {
       final canvasEntity = _getCanvasEntity()!;
       final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
-      final endX = (event.localX - canvasState.panX) / canvasState.zoom;
-      final endY = (event.localY - canvasState.panY) / canvasState.zoom;
+      final endX = canvasState.connectionDraftX!;
+      final endY = canvasState.connectionDraftY!;
       final targetNode = getNodeAt(world, endX, endY);
       final portHit =
           (targetNode != null) ? getPortAt(targetNode, endX, endY) : null;

@@ -1,7 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/components/editor_components.dart
 // (English comments for code clarity)
-// FIX v4.1: Added the missing copyWith methods to components for immutable updates.
-// FIX v1.1: Corrected typos in the EditorCanvasComponent's copyWith method signature and a stray character.
+// MODIFIED v1.1: Added selectedEntityId and settingsNodeId to manage UI state.
 
 import 'package:nexus/nexus.dart';
 
@@ -152,6 +151,10 @@ class EditorCanvasComponent extends Component with SerializableComponent {
   final double? contextMenuX;
   final double? contextMenuY;
 
+  // FIX: Added state for selection and settings panel
+  final EntityId? selectedEntityId;
+  final EntityId? settingsNodeId;
+
   EditorCanvasComponent({
     this.panX = 0.0,
     this.panY = 0.0,
@@ -165,6 +168,8 @@ class EditorCanvasComponent extends Component with SerializableComponent {
     this.contextMenuNodeId,
     this.contextMenuX,
     this.contextMenuY,
+    this.selectedEntityId,
+    this.settingsNodeId,
   });
 
   EditorCanvasComponent copyWith({
@@ -183,12 +188,15 @@ class EditorCanvasComponent extends Component with SerializableComponent {
     bool clearConnectionDraftY = false,
     Map<String, double>? previewInputValues,
     EntityId? contextMenuNodeId,
-    // FIX: Corrected typo from 'clearContext MenuNodeId' to 'clearContextMenuNodeId'
     bool clearContextMenuNodeId = false,
     double? contextMenuX,
     bool clearContextMenuX = false,
     double? contextMenuY,
     bool clearContextMenuY = false,
+    EntityId? selectedEntityId,
+    bool clearSelectedEntityId = false,
+    EntityId? settingsNodeId,
+    bool clearSettingsNodeId = false,
   }) {
     return EditorCanvasComponent(
       panX: panX ?? this.panX,
@@ -216,6 +224,11 @@ class EditorCanvasComponent extends Component with SerializableComponent {
           clearContextMenuX ? null : contextMenuX ?? this.contextMenuX,
       contextMenuY:
           clearContextMenuY ? null : contextMenuY ?? this.contextMenuY,
+      selectedEntityId: clearSelectedEntityId
+          ? null
+          : selectedEntityId ?? this.selectedEntityId,
+      settingsNodeId:
+          clearSettingsNodeId ? null : settingsNodeId ?? this.settingsNodeId,
     );
   }
 
@@ -235,6 +248,8 @@ class EditorCanvasComponent extends Component with SerializableComponent {
       contextMenuNodeId: json['contextMenuNodeId'] as EntityId?,
       contextMenuX: (json['contextMenuX'] as num?)?.toDouble(),
       contextMenuY: (json['contextMenuY'] as num?)?.toDouble(),
+      selectedEntityId: json['selectedEntityId'] as EntityId?,
+      settingsNodeId: json['settingsNodeId'] as EntityId?,
     );
   }
 
@@ -252,6 +267,8 @@ class EditorCanvasComponent extends Component with SerializableComponent {
         'contextMenuNodeId': contextMenuNodeId,
         'contextMenuX': contextMenuX,
         'contextMenuY': contextMenuY,
+        'selectedEntityId': selectedEntityId,
+        'settingsNodeId': settingsNodeId,
       };
 
   @override
@@ -268,6 +285,8 @@ class EditorCanvasComponent extends Component with SerializableComponent {
         contextMenuNodeId,
         contextMenuX,
         contextMenuY,
+        selectedEntityId,
+        settingsNodeId,
       ];
 }
 

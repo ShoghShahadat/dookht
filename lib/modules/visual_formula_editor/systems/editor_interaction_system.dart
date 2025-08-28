@@ -1,12 +1,14 @@
 // FILE: lib/modules/visual_formula_editor/systems/editor_interaction_system.dart
 // (English comments for code clarity)
-// This system handles discrete interactions like taps.
+// REFACTORED v1.2: This system now solely focuses on selection logic.
 
+import 'package:collection/collection.dart';
 import 'package:nexus/nexus.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/editor_events.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/utils/editor_helpers.dart';
 
-/// Handles discrete user interactions like tapping on elements.
+/// Handles discrete user interactions like tapping on elements to select them.
 class EditorInteractionSystem extends System {
   @override
   void onAddedToWorld(NexusWorld world) {
@@ -15,12 +17,30 @@ class EditorInteractionSystem extends System {
   }
 
   void _onTapUp(CanvasTapUpEvent event) {
-    // The primary tap action is to delete a connection by tapping near its midpoint.
-    final connectionToDelete =
-        getConnectionAt(world, event.localX, event.localY);
-    if (connectionToDelete != null) {
-      world.eventBus.fire(DeleteConnectionEvent(connectionToDelete.id));
+    final canvasEntity = world.entities.values
+        .firstWhereOrNull((e) => e.has<EditorCanvasComponent>());
+    if (canvasEntity == null) return;
+    final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
+
+    final canvasX = (event.localX - canvasState.panX) / canvasState.zoom;
+    final canvasY = (event.localY - canvasState.panY) / canvasState.zoom;
+
+    // First, check for a tap on a node.
+    final nodeHit = getNodeAt(world, canvasX, canvasY);
+    if (nodeHit != null) {
+      world.eventBus.fire(SelectEntityEvent(nodeHit.id));
+      return;
     }
+
+    // If no node was hit, check for a connection.
+    final connectionHit = getConnectionAt(world, canvasX, canvasY);
+    if (connectionHit != null) {
+      world.eventBus.fire(SelectEntityEvent(connectionHit.id));
+      return;
+    }
+
+    // If nothing was hit, deselect everything.
+    world.eventBus.fire(SelectEntityEvent(null));
   }
 
   @override

@@ -1,23 +1,31 @@
 // FILE: lib/modules/visual_formula_editor/systems/editor_state_system.dart
 // (English comments for code clarity)
-// This new system is dedicated to managing non-gesture state changes, like preview inputs.
+// MODIFIED v1.2: Added handlers for new selection and settings events.
 
 import 'package:collection/collection.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/editor_events.dart';
 
-/// Manages non-gesture-related state changes for the editor, such as updating preview values.
+/// Manages non-gesture-related state changes for the editor.
 class EditorStateSystem extends System {
   @override
   void onAddedToWorld(NexusWorld world) {
     super.onAddedToWorld(world);
     listen<UpdatePreviewInputEvent>(_onUpdatePreviewInput);
+    listen<SelectEntityEvent>(_onSelectEntity);
+    listen<OpenNodeSettingsEvent>(_onOpenNodeSettings);
+    listen<CloseNodeSettingsEvent>(_onCloseNodeSettings);
+    listen<UpdateNodeDataEvent>(_onUpdateNodeData);
+  }
+
+  Entity? _getCanvasEntity() {
+    return world.entities.values
+        .firstWhereOrNull((e) => e.has<EditorCanvasComponent>());
   }
 
   void _onUpdatePreviewInput(UpdatePreviewInputEvent event) {
-    final canvasEntity = world.entities.values
-        .firstWhereOrNull((e) => e.has<EditorCanvasComponent>());
+    final canvasEntity = _getCanvasEntity();
     if (canvasEntity == null) return;
 
     final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
@@ -30,8 +38,49 @@ class EditorStateSystem extends System {
     }
 
     canvasEntity.add(canvasState.copyWith(previewInputValues: newValues));
+    world.eventBus.fire(RecalculateGraphEvent());
+  }
 
-    // Crucially, fire the event to trigger a recalculation of the graph.
+  void _onSelectEntity(SelectEntityEvent event) {
+    final canvasEntity = _getCanvasEntity();
+    if (canvasEntity == null) return;
+    final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
+    canvasEntity.add(canvasState.copyWith(
+      selectedEntityId: event.entityId,
+      clearSelectedEntityId: event.entityId == null,
+    ));
+  }
+
+  void _onOpenNodeSettings(OpenNodeSettingsEvent event) {
+    final canvasEntity = _getCanvasEntity();
+    if (canvasEntity == null) return;
+    final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
+    canvasEntity.add(canvasState.copyWith(settingsNodeId: event.nodeId));
+  }
+
+  void _onCloseNodeSettings(CloseNodeSettingsEvent event) {
+    final canvasEntity = _getCanvasEntity();
+    if (canvasEntity == null) return;
+    final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
+    canvasEntity.add(canvasState.copyWith(clearSettingsNodeId: true));
+  }
+
+  void _onUpdateNodeData(UpdateNodeDataEvent event) {
+    final nodeEntity = world.entities[event.nodeId];
+    if (nodeEntity == null) return;
+    final nodeComp = nodeEntity.get<NodeComponent>();
+    if (nodeComp == null) return;
+
+    final newCombinedData = Map<String, dynamic>.from(nodeComp.data)
+      ..addAll(event.newData);
+
+    // Also update the label if the operator changes
+    String newLabel = nodeComp.label;
+    if (event.newData.containsKey('operator')) {
+      newLabel = event.newData['operator'];
+    }
+
+    nodeEntity.add(nodeComp.copyWith(data: newCombinedData, label: newLabel));
     world.eventBus.fire(RecalculateGraphEvent());
   }
 

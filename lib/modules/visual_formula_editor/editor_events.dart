@@ -1,6 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/editor_events.dart
 // (English comments for code clarity)
-// This is the complete and corrected version of the events file.
+// MODIFIED v1.7: Added events for selection and settings management.
 
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
@@ -17,8 +17,14 @@ class CanvasScaleUpdateEvent {
   final double focalX;
   final double focalY;
   final double scale;
+  final double deltaX;
+  final double deltaY;
   CanvasScaleUpdateEvent(
-      {required this.focalX, required this.focalY, required this.scale});
+      {required this.focalX,
+      required this.focalY,
+      required this.scale,
+      required this.deltaX,
+      required this.deltaY});
 }
 
 class CanvasScaleEndEvent {}
@@ -26,31 +32,9 @@ class CanvasScaleEndEvent {}
 class CanvasTapUpEvent {
   final double localX;
   final double localY;
-  CanvasTapUpEvent({required this.localX, required this.localY});
-}
-
-class CanvasPanStartEvent {
-  final double localX;
-  final double localY;
-  CanvasPanStartEvent({required this.localX, required this.localY});
-}
-
-class CanvasPanUpdateEvent {
-  final double deltaX;
-  final double deltaY;
-  final double localX;
-  final double localY;
-  CanvasPanUpdateEvent(
-      {required this.deltaX,
-      required this.deltaY,
-      required this.localX,
-      required this.localY});
-}
-
-class CanvasPanEndEvent {
-  final double localX;
-  final double localY;
-  CanvasPanEndEvent({required this.localX, required this.localY});
+  final EntityId? tappedEntityId; // Can be a node or connection
+  CanvasTapUpEvent(
+      {required this.localX, required this.localY, this.tappedEntityId});
 }
 
 class CanvasLongPressStartEvent {
@@ -85,3 +69,22 @@ class DeleteConnectionEvent {
 }
 
 class RecalculateGraphEvent {}
+
+// FIX: New events for managing selection and settings
+class SelectEntityEvent {
+  final EntityId? entityId;
+  SelectEntityEvent(this.entityId);
+}
+
+class OpenNodeSettingsEvent {
+  final EntityId nodeId;
+  OpenNodeSettingsEvent(this.nodeId);
+}
+
+class CloseNodeSettingsEvent {}
+
+class UpdateNodeDataEvent {
+  final EntityId nodeId;
+  final Map<String, dynamic> newData;
+  UpdateNodeDataEvent({required this.nodeId, required this.newData});
+}
