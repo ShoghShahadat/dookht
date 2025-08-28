@@ -1,6 +1,7 @@
 // FILE: lib/modules/visual_formula_editor/ui/widgets/node_widget.dart
 // (English comments for code clarity)
-// This widget renders a single, interactive node on the canvas.
+// REFACTORED v2.0: Removed the internal GestureDetector. All gestures are now
+// handled by the parent InteractiveCanvasLayer to prevent conflicts.
 
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
@@ -28,69 +29,54 @@ class NodeWidget extends StatelessWidget {
     final pos = node.position;
     final isSelected = canvasState.selectedEntityId == nodeId;
 
+    // The Positioned widget places the node on the canvas.
+    // The gesture handling is now deferred to the parent canvas.
     return Positioned(
       left: pos.x,
       top: pos.y,
       width: pos.width,
       height: pos.height,
-      child: GestureDetector(
-        onTap: () => renderingSystem.manager?.send(SelectEntityEvent(nodeId)),
-        onScaleStart: (details) => renderingSystem.manager?.send(
-            CanvasScaleStartEvent(
-                focalX: details.localFocalPoint.dx,
-                focalY: details.localFocalPoint.dy)),
-        onScaleUpdate: (details) => renderingSystem.manager?.send(
-            CanvasScaleUpdateEvent(
-                focalX: details.localFocalPoint.dx,
-                focalY: details.localFocalPoint.dy,
-                scale: 1.0,
-                deltaX: details.focalPointDelta.dx,
-                deltaY: details.focalPointDelta.dy)),
-        onScaleEnd: (details) =>
-            renderingSystem.manager?.send(CanvasScaleEndEvent()),
-        child: Container(
-          decoration: BoxDecoration(
-              color: _getColorForNodeType(node.type),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color:
-                    isSelected ? Colors.amber : Colors.white.withOpacity(0.5),
-                width: isSelected ? 3 : 1,
+      child: Container(
+        decoration: BoxDecoration(
+            color: _getColorForNodeType(node.type),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? Colors.amber : Colors.white.withOpacity(0.5),
+              width: isSelected ? 3 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.5),
+                  blurRadius: 10,
+                  spreadRadius: 2)
+            ]),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Center(
+              child: Text(
+                '${node.label}\n${_getNodeDisplayValue(nodeState)}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white),
               ),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withOpacity(0.5),
-                    blurRadius: 10,
-                    spreadRadius: 2)
-              ]),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Center(
-                child: Text(
-                  '${node.label}\n${_getNodeDisplayValue(nodeState)}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-              if (_nodeHasSettings(node.type))
-                Positioned(
-                  top: -8,
-                  right: -8,
-                  child: GestureDetector(
-                    onTap: () => renderingSystem.manager
-                        ?.send(OpenNodeSettingsEvent(nodeId)),
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                          color: Colors.black, shape: BoxShape.circle),
-                      child: const Icon(Icons.settings,
-                          color: Colors.white, size: 16),
-                    ),
+            ),
+            if (_nodeHasSettings(node.type))
+              Positioned(
+                top: -8,
+                right: -8,
+                child: GestureDetector(
+                  onTap: () => renderingSystem.manager
+                      ?.send(OpenNodeSettingsEvent(nodeId)),
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                        color: Colors.black, shape: BoxShape.circle),
+                    child: const Icon(Icons.settings,
+                        color: Colors.white, size: 16),
                   ),
-                )
-            ],
-          ),
+                ),
+              )
+          ],
         ),
       ),
     );

@@ -1,9 +1,14 @@
+// FILE: lib/modules/visual_formula_editor/ui/screens/visual_formula_editor_screen.dart
+// (English comments for code clarity)
+// MODIFIED v2.0: Added the new ContextMenuWidget to the stack to handle long-press actions.
+
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/customers/customer_events.dart';
 import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/editor_events.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/ui/widgets/context_menu_widget.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/ui/widgets/interactive_canvas_layer.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/ui/widgets/node_settings_panel.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/ui/widgets/preview_panel_widget.dart';
@@ -98,12 +103,19 @@ class _VisualFormulaEditorScreenState extends State<VisualFormulaEditorScreen> {
 
           return Stack(
             children: [
+              // The main interactive canvas layer
               InteractiveCanvasLayer(
                 renderingSystem: rs,
                 nodeIds: nodeIds,
                 connectionIds: connectionIds,
                 canvasState: canvasState,
               ),
+              // The context menu for actions like delete
+              ContextMenuWidget(
+                renderingSystem: rs,
+                canvasState: canvasState,
+              ),
+              // UI Overlays
               ToolbarWidget(renderingSystem: rs),
               PreviewPanelWidget(
                 renderingSystem: rs,

@@ -1,7 +1,7 @@
 // FILE: lib/modules/visual_formula_editor/systems/editor_gesture_system.dart
 // (English comments for code clarity)
-// REFACTORED v1.4: Merged all Pan and Scale logic into Scale handlers to resolve the Flutter GestureDetector conflict.
-// The system now correctly handles panning, zooming, node dragging, and connection creation through a single set of scale events.
+// REFACTORED v2.0: Logic is streamlined for clarity and robustness.
+// Dragging is now explicitly managed via the draggedEntityId in the canvas state.
 
 import 'package:collection/collection.dart';
 import 'package:nexus/nexus.dart';
@@ -15,8 +15,6 @@ enum InteractionMode { none, draggingNode, panning, creatingConnection }
 /// Handles all gesture-based interactions within the visual formula editor.
 class EditorGestureSystem extends System {
   InteractionMode _mode = InteractionMode.none;
-  EntityId? _activeNodeId;
-  String? _activePortId;
   double _lastFocalX = 0.0;
   double _lastFocalY = 0.0;
 
@@ -38,6 +36,7 @@ class EditorGestureSystem extends System {
     if (canvasEntity == null) return;
     final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
 
+    // Always hide context menu on new interaction
     if (canvasState.contextMenuNodeId != null) {
       world.eventBus.fire(HideContextMenuEvent());
     }
@@ -49,25 +48,27 @@ class EditorGestureSystem extends System {
 
     if (nodeHit != null) {
       final portHit = getPortAt(nodeHit, canvasX, canvasY);
-      if (portHit != null &&
-          nodeHit
-              .get<NodeComponent>()!
-              .outputs
-              .any((p) => p.id == portHit.port.id)) {
+      final isOutputPort = nodeHit
+          .get<NodeComponent>()!
+          .outputs
+          .any((p) => p.id == portHit?.port.id);
+
+      if (portHit != null && isOutputPort) {
+        // Start creating a connection if dragging from an output port
         _mode = InteractionMode.creatingConnection;
-        _activeNodeId = nodeHit.id;
-        _activePortId = portHit.port.id;
         canvasEntity.add(canvasState.copyWith(
-          connectionStartNodeId: _activeNodeId,
-          connectionStartPortId: _activePortId,
+          connectionStartNodeId: nodeHit.id,
+          connectionStartPortId: portHit.port.id,
           connectionDraftX: portHit.x,
           connectionDraftY: portHit.y,
         ));
       } else {
+        // Start dragging the node itself
         _mode = InteractionMode.draggingNode;
-        _activeNodeId = nodeHit.id;
+        canvasEntity.add(canvasState.copyWith(draggedEntityId: nodeHit.id));
       }
     } else {
+      // If no node is hit, start panning the canvas
       _mode = InteractionMode.panning;
     }
     _lastFocalX = event.focalX;
@@ -81,8 +82,11 @@ class EditorGestureSystem extends System {
 
     switch (_mode) {
       case InteractionMode.draggingNode:
-        final draggedEntity = world.entities[_activeNodeId!];
+        final draggedId = canvasState.draggedEntityId;
+        if (draggedId == null) break;
+        final draggedEntity = world.entities[draggedId];
         if (draggedEntity == null) break;
+
         final nodeComp = draggedEntity.get<NodeComponent>()!;
         draggedEntity.add(nodeComp.copyWith(
           position: PositionComponent(
@@ -128,9 +132,11 @@ class EditorGestureSystem extends System {
   }
 
   void _onScaleEnd(CanvasScaleEndEvent event) {
+    final canvasEntity = _getCanvasEntity();
+    if (canvasEntity == null) return;
+    final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
+
     if (_mode == InteractionMode.creatingConnection) {
-      final canvasEntity = _getCanvasEntity()!;
-      final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
       final endX = canvasState.connectionDraftX!;
       final endY = canvasState.connectionDraftY!;
       final targetNode = getNodeAt(world, endX, endY);
@@ -138,27 +144,21 @@ class EditorGestureSystem extends System {
           (targetNode != null) ? getPortAt(targetNode, endX, endY) : null;
 
       world.eventBus.fire(FinalizeConnectionEvent(
-        fromNodeId: _activeNodeId!,
-        fromPortId: _activePortId!,
+        fromNodeId: canvasState.connectionStartNodeId!,
+        fromPortId: canvasState.connectionStartPortId!,
         targetNode: targetNode,
         targetPort: portHit?.port,
       ));
     }
 
     _mode = InteractionMode.none;
-    _activeNodeId = null;
-    _activePortId = null;
-
-    final canvasEntity = _getCanvasEntity();
-    if (canvasEntity != null) {
-      final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
-      canvasEntity.add(canvasState.copyWith(
-        clearConnectionStartNodeId: true,
-        clearConnectionStartPortId: true,
-        clearConnectionDraftX: true,
-        clearConnectionDraftY: true,
-      ));
-    }
+    canvasEntity.add(canvasState.copyWith(
+      clearDraggedEntityId: true,
+      clearConnectionStartNodeId: true,
+      clearConnectionStartPortId: true,
+      clearConnectionDraftX: true,
+      clearConnectionDraftY: true,
+    ));
   }
 
   @override
