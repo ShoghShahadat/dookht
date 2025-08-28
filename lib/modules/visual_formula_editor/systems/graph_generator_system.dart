@@ -1,7 +1,7 @@
 // FILE: lib/modules/visual_formula_editor/systems/graph_generator_system.dart
 // (English comments for code clarity)
-// MODIFIED v2.0: Rewritten to be fully recursive, correctly handling operator
-// precedence by adding parentheses around binary expression results.
+// MODIFIED v3.0: Now accepts the variable name map to correctly reconstruct
+// the original Persian variable names in the expression string.
 
 import 'package:collection/collection.dart';
 import 'package:nexus/nexus.dart';
@@ -11,9 +11,10 @@ import 'package:tailor_assistant/modules/visual_formula_editor/components/editor
 /// corresponding mathematical expression string.
 class GraphGeneratorSystem {
   final NexusWorld _world;
-  final Map<EntityId, String> _memo = {}; // Memoization for performance
+  final Map<String, String> _nameMap;
+  final Map<EntityId, String> _memo = {};
 
-  GraphGeneratorSystem(this._world);
+  GraphGeneratorSystem(this._world, this._nameMap);
 
   String generate() {
     _memo.clear();
@@ -21,10 +22,9 @@ class GraphGeneratorSystem {
         (e) => e.get<NodeComponent>()?.type == NodeType.output);
 
     if (outputNode == null) {
-      return ""; // No output node, no expression
+      return "";
     }
 
-    // Start the recursive generation from the output node's input.
     return _generateForNode(outputNode.id);
   }
 
@@ -40,7 +40,9 @@ class GraphGeneratorSystem {
     String result;
     switch (nodeComp.type) {
       case NodeType.input:
-        result = nodeComp.data['inputId'] as String? ?? '?';
+        final sanitizedName = nodeComp.data['inputId'] as String? ?? '?';
+        // Use the map to get the original name back.
+        result = _nameMap[sanitizedName] ?? sanitizedName;
         break;
       case NodeType.constant:
         result = (nodeComp.data['value'] as num? ?? 0).toString();
@@ -48,24 +50,19 @@ class GraphGeneratorSystem {
       case NodeType.operator:
         final operator = nodeComp.data['operator'] as String? ?? '+';
         final inputs = _getConnectedInputExpressions(nodeId);
-
         if (inputs.isEmpty) {
           result = '0';
         } else if (inputs.length == 1) {
           result = inputs.first;
         } else {
-          // Correctly join with parentheses to respect operator precedence
           result = "(${inputs.join(' $operator ')})";
         }
         break;
       case NodeType.output:
-        // The output node's value is the expression of its single input.
         final inputs = _getConnectedInputExpressions(nodeId);
         result = inputs.firstOrNull ?? '';
         break;
       case NodeType.condition:
-        // This is a simplified representation. A full implementation would
-        // require a more complex language than standard math expressions.
         final a =
             _getConnectedInputExpressions(nodeId, portId: 'in_a').firstOrNull ??
                 '?';
@@ -76,7 +73,7 @@ class GraphGeneratorSystem {
                 .firstOrNull ??
             '?';
         final op = nodeComp.data['operator'] as String? ?? '==';
-        result = "($a $op $b ? $pass : 0)"; // Ternary operator representation
+        result = "($a $op $b ? $pass : 0)";
         break;
     }
 

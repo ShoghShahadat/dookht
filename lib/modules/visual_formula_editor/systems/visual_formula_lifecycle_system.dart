@@ -1,20 +1,19 @@
 // FILE: lib/modules/visual_formula_editor/systems/visual_formula_lifecycle_system.dart
 // (English comments for code clarity)
-// MODIFIED v6.0: Corrected the constructor call for FormulaParserSystem.
+// MODIFIED v7.0: Now updates the canvas state with the variable name map
+// when loading a graph from a text expression.
 
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/method_management/method_management_events.dart';
 import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
 import 'package:tailor_assistant/modules/ui/view_manager/view_manager_component.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/editor_events.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/systems/formula_parser_system.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/systems/graph_generator_system.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/utils/editor_helpers.dart';
 
-/// Manages loading the correct visual graph when the editor is opened,
-/// and saving it (and its text equivalent) when the editor is closed.
 class VisualFormulaLifecycleSystem extends System {
   EntityId? _activeMethodId;
   String? _activeFormulaKey;
@@ -27,7 +26,6 @@ class VisualFormulaLifecycleSystem extends System {
 
   void _onViewChanged(ComponentUpdatedEvent<ViewStateComponent> event) {
     final viewState = event.component;
-
     final isEnteringEditor =
         viewState.currentView == AppView.visualFormulaEditor;
     final hasActiveFormula = _activeMethodId != null;
@@ -52,40 +50,37 @@ class VisualFormulaLifecycleSystem extends System {
         .where((e) => e.has<ConnectionComponent>())
         .map((e) => e.id)
         .toList();
-
     for (final id in [...nodeIds, ...connectionIds]) {
       world.removeEntity(id);
     }
   }
 
   void _loadGraphForActiveFormula() {
-    if (_activeMethodId == null || _activeFormulaKey == null) {
-      return;
-    }
-
+    if (_activeMethodId == null || _activeFormulaKey == null) return;
     _clearCurrentGraph();
 
     final methodEntity = world.entities[_activeMethodId!];
     final methodComp = methodEntity?.get<PatternMethodComponent>();
-    if (methodComp == null) {
-      return;
-    }
+    if (methodComp == null) return;
 
     final formula = methodComp.formulas
         .firstWhereOrNull((f) => f.resultKey == _activeFormulaKey);
-    if (formula == null) {
-      return;
-    }
+    if (formula == null) return;
 
     List<Entity> newEntities = [];
+    Map<String, String> nameMap = {};
+
     if (formula.visualGraphData != null &&
         formula.visualGraphData!['nodes'] != null &&
         (formula.visualGraphData!['nodes'] as List).isNotEmpty) {
       newEntities = _deserializeGraph(formula.visualGraphData!);
+      // Note: When loading from saved graph data, we currently don't have the name map.
+      // A more advanced save format could include it. For now, it will be regenerated.
     } else if (formula.expression.trim().isNotEmpty) {
-      // **FIX**: The constructor for FormulaParserSystem now takes no arguments.
       final parser = FormulaParserSystem();
-      newEntities = parser.parse(formula.resultKey, formula.expression);
+      final result = parser.parse(formula.resultKey, formula.expression);
+      newEntities = result.entities;
+      nameMap = result.nameMap;
     } else {
       final outputNode = createNodeFromType(NodeType.output, 800, 250)
         ..get<NodeComponent>()!.data['resultKey'] = formula.resultKey;
@@ -95,12 +90,28 @@ class VisualFormulaLifecycleSystem extends System {
     for (final entity in newEntities) {
       world.addEntity(entity);
     }
+
+    // Update the canvas state with the new name map.
+    final canvasEntity = world.entities.values
+        .firstWhereOrNull((e) => e.has<EditorCanvasComponent>());
+    final canvasState = canvasEntity?.get<EditorCanvasComponent>();
+    if (canvasEntity != null && canvasState != null) {
+      canvasEntity.add(canvasState.copyWith(variableNameMap: nameMap));
+    }
+
+    // Trigger a sync to ensure the text field reflects the loaded graph.
+    world.eventBus.fire(RecalculateGraphEvent());
   }
 
   void _saveGraphAndUnload() {
     if (_activeMethodId == null || _activeFormulaKey == null) return;
 
-    final generator = GraphGeneratorSystem(world);
+    final canvasEntity = world.entities.values
+        .firstWhereOrNull((e) => e.has<EditorCanvasComponent>());
+    final canvasState = canvasEntity?.get<EditorCanvasComponent>();
+
+    final generator =
+        GraphGeneratorSystem(world, canvasState?.variableNameMap ?? {});
     final newExpression = generator.generate();
     final serializedGraph = _serializeGraph();
 
@@ -147,7 +158,6 @@ class VisualFormulaLifecycleSystem extends System {
   List<Entity> _deserializeGraph(Map<String, dynamic> graphData) {
     final entities = <Entity>[];
     final idMap = <EntityId, EntityId>{};
-
     if (graphData['nodes'] is List) {
       for (var nodeJson in graphData['nodes']) {
         final oldId = nodeJson['id'] as EntityId;
@@ -156,13 +166,11 @@ class VisualFormulaLifecycleSystem extends System {
         entities.add(node);
       }
     }
-
     if (graphData['connections'] is List) {
       for (var connJson in graphData['connections']) {
         final connComp = ConnectionComponent.fromJson(connJson);
         final newFromId = idMap[connComp.fromNodeId];
         final newToId = idMap[connComp.toNodeId];
-
         if (newFromId != null && newToId != null) {
           final connection = Entity()
             ..add(ConnectionComponent(

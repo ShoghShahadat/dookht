@@ -1,9 +1,7 @@
 // FILE: lib/modules/visual_formula_editor/systems/formula_parser_system.dart
 // (English comments for code clarity)
-// MODIFIED v8.0: FINAL, ROBUST FIX for Persian variables. Implemented a
-// variable mapping system. Persian phrases are now replaced with safe, temporary
-// ASCII identifiers before parsing, and then mapped back to the original
-// Persian for display. This is the definitive solution.
+// MODIFIED v9.0: The parse method now returns the generated variable map
+// so the calling system can store it in the central EditorCanvasComponent.
 
 import 'package:expressions/expressions.dart';
 import 'package:flutter/foundation.dart';
@@ -17,34 +15,29 @@ class FormulaParserSystem {
   final double _xStep = 200;
   final double _yStep = 120;
   final Map<int, double> _yPositions = {};
-  // Maps sanitized variable names (e.g., __var0__) to their original display names (e.g., "عرض پارچه").
   final Map<String, String> _sanitizedToOriginal = {};
 
   FormulaParserSystem();
 
-  /// Pre-processes the expression to handle multi-word and non-ASCII variables.
   String _sanitizeExpression(String expression) {
     _sanitizedToOriginal.clear();
     int varIndex = 0;
-    // This regex finds sequences of non-operator, non-numeric, non-grouping characters.
-    // It correctly captures multi-word Persian and English phrases.
     final variableRegex =
         RegExp(r'([a-zA-Z\u0600-\u06FF_][a-zA-Z0-9\u0600-\u06FF_\s]*)');
 
     return expression.replaceAllMapped(variableRegex, (match) {
       final originalPhrase = match.group(0)!.trim();
-      // Ignore numbers that might be caught by the regex
       if (double.tryParse(originalPhrase) != null) {
         return originalPhrase;
       }
-      // Generate a safe, temporary variable name
       final sanitized = '__var${varIndex++}__';
       _sanitizedToOriginal[sanitized] = originalPhrase;
       return sanitized;
     });
   }
 
-  List<Entity> parse(String resultKey, String expression) {
+  ({List<Entity> entities, Map<String, String> nameMap}) parse(
+      String resultKey, String expression) {
     _yPositions.clear();
     final List<Entity> entities = [];
 
@@ -53,7 +46,7 @@ class FormulaParserSystem {
     entities.add(outputNode);
 
     if (expression.trim().isEmpty) {
-      return entities;
+      return (entities: entities, nameMap: _sanitizedToOriginal);
     }
 
     try {
@@ -78,13 +71,12 @@ class FormulaParserSystem {
       debugPrint(
           "[FormulaParserSystem] Unexpected error parsing expression '$expression': $e");
     }
-    return entities;
+    return (entities: entities, nameMap: _sanitizedToOriginal);
   }
 
   List<Expression> _flattenExpression(
       BinaryExpression expression, String operator) {
     final List<Expression> operands = [];
-
     if (expression.left is BinaryExpression &&
         (expression.left as BinaryExpression).operator.toString() == operator) {
       operands.addAll(
@@ -92,7 +84,6 @@ class FormulaParserSystem {
     } else {
       operands.add(expression.left);
     }
-
     if (expression.right is BinaryExpression &&
         (expression.right as BinaryExpression).operator.toString() ==
             operator) {
@@ -120,7 +111,6 @@ class FormulaParserSystem {
     } else if (expression is Variable) {
       final sanitizedName = expression.identifier.name;
       final displayName = _sanitizedToOriginal[sanitizedName] ?? sanitizedName;
-
       final node = createNodeFromType(NodeType.input, x, y);
       final nodeComp = node.get<NodeComponent>()!;
       nodeComp.data['inputId'] = sanitizedName;
@@ -130,17 +120,14 @@ class FormulaParserSystem {
     } else if (expression is BinaryExpression) {
       final operator = expression.operator.toString();
       final operands = _flattenExpression(expression, operator);
-
       final operatorNode = createNodeFromType(NodeType.operator, x, y);
       final opComp = operatorNode.get<NodeComponent>()!;
       opComp.data['operator'] = operator;
-
       final newInputs = <NodePort>[];
       for (int i = 0; i < operands.length; i++) {
         final portId = 'in_$i';
         final portLabel = String.fromCharCode('A'.codeUnitAt(0) + i);
         newInputs.add(NodePort(id: portId, label: portLabel));
-
         final operandEntity = _parseNode(operands[i], depth + 1, entities);
         if (operandEntity != null) {
           final conn = Entity()
@@ -154,16 +141,13 @@ class FormulaParserSystem {
           entities.add(conn);
         }
       }
-
       final newPortIndex = newInputs.length;
       final newPortId = 'in_$newPortIndex';
       final newPortLabel =
           String.fromCharCode('A'.codeUnitAt(0) + newPortIndex);
       newInputs.add(NodePort(id: newPortId, label: newPortLabel));
-
       operatorNode.add(opComp.copyWith(label: operator, inputs: newInputs));
       entities.add(operatorNode);
-
       return operatorNode;
     }
     return null;

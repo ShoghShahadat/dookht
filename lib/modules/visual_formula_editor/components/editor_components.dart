@@ -1,10 +1,10 @@
 // FILE: lib/modules/visual_formula_editor/components/editor_components.dart
 // (English comments for code clarity)
-// MODIFIED v3.0: Added `currentExpression` to EditorCanvasComponent for the text editor.
+// MODIFIED v5.0: FINAL FIX - Correctly added the 'variableNameMap' property
+// to the class definition, constructor, copyWith, toJson/fromJson, and props.
 
 import 'package:nexus/nexus.dart';
 
-/// Defines the type of a node in the visual editor.
 enum NodeType {
   input,
   constant,
@@ -13,7 +13,6 @@ enum NodeType {
   output,
 }
 
-/// A helper class defining an input or output port on a node. Not a component.
 class NodePort with EquatableMixin {
   final String id;
   final String label;
@@ -33,7 +32,6 @@ class NodePort with EquatableMixin {
   List<Object?> get props => [id, label];
 }
 
-/// A serializable component representing a single node (box) on the canvas.
 class NodeComponent extends Component with SerializableComponent {
   final String label;
   final NodeType type;
@@ -98,7 +96,6 @@ class NodeComponent extends Component with SerializableComponent {
   List<Object?> get props => [label, type, position, data, inputs, outputs];
 }
 
-/// A serializable component representing a connection between two nodes.
 class ConnectionComponent extends Component with SerializableComponent {
   final EntityId fromNodeId;
   final String fromPortId;
@@ -154,8 +151,9 @@ class EditorCanvasComponent extends Component with SerializableComponent {
   final EntityId? selectedEntityId;
   final EntityId? settingsNodeId;
 
-  // NEW: Holds the current textual representation of the formula graph.
   final String currentExpression;
+
+  final Map<String, String> variableNameMap;
 
   EditorCanvasComponent({
     this.panX = 0.0,
@@ -173,6 +171,7 @@ class EditorCanvasComponent extends Component with SerializableComponent {
     this.selectedEntityId,
     this.settingsNodeId,
     this.currentExpression = '',
+    this.variableNameMap = const {},
   });
 
   EditorCanvasComponent copyWith({
@@ -201,6 +200,7 @@ class EditorCanvasComponent extends Component with SerializableComponent {
     EntityId? settingsNodeId,
     bool clearSettingsNodeId = false,
     String? currentExpression,
+    Map<String, String>? variableNameMap,
   }) {
     return EditorCanvasComponent(
       panX: panX ?? this.panX,
@@ -234,20 +234,21 @@ class EditorCanvasComponent extends Component with SerializableComponent {
       settingsNodeId:
           clearSettingsNodeId ? null : settingsNodeId ?? this.settingsNodeId,
       currentExpression: currentExpression ?? this.currentExpression,
+      variableNameMap: variableNameMap ?? this.variableNameMap,
     );
   }
 
   factory EditorCanvasComponent.fromJson(Map<String, dynamic> json) {
     return EditorCanvasComponent(
-      panX: (json['panX'] as num).toDouble(),
-      panY: (json['panY'] as num).toDouble(),
-      zoom: (json['zoom'] as num).toDouble(),
+      panX: (json['panX'] as num? ?? 0.0).toDouble(),
+      panY: (json['panY'] as num? ?? 0.0).toDouble(),
+      zoom: (json['zoom'] as num? ?? 1.0).toDouble(),
       draggedEntityId: json['draggedEntityId'] as EntityId?,
       connectionStartNodeId: json['connectionStartNodeId'] as EntityId?,
       connectionStartPortId: json['connectionStartPortId'] as String?,
       connectionDraftX: (json['connectionDraftX'] as num?)?.toDouble(),
       connectionDraftY: (json['connectionDraftY'] as num?)?.toDouble(),
-      previewInputValues: (json['previewInputValues'] as Map).map(
+      previewInputValues: (json['previewInputValues'] as Map? ?? {}).map(
         (key, value) => MapEntry(key as String, (value as num).toDouble()),
       ),
       contextMenuNodeId: json['contextMenuNodeId'] as EntityId?,
@@ -256,6 +257,8 @@ class EditorCanvasComponent extends Component with SerializableComponent {
       selectedEntityId: json['selectedEntityId'] as EntityId?,
       settingsNodeId: json['settingsNodeId'] as EntityId?,
       currentExpression: json['currentExpression'] as String? ?? '',
+      variableNameMap:
+          (json['variableNameMap'] as Map? ?? {}).cast<String, String>(),
     );
   }
 
@@ -276,6 +279,7 @@ class EditorCanvasComponent extends Component with SerializableComponent {
         'selectedEntityId': selectedEntityId,
         'settingsNodeId': settingsNodeId,
         'currentExpression': currentExpression,
+        'variableNameMap': variableNameMap,
       };
 
   @override
@@ -295,10 +299,10 @@ class EditorCanvasComponent extends Component with SerializableComponent {
         selectedEntityId,
         settingsNodeId,
         currentExpression,
+        variableNameMap,
       ];
 }
 
-/// A component to hold the runtime state of a node, like its calculated value.
 class NodeStateComponent extends Component with SerializableComponent {
   final Map<String, dynamic> outputValues;
   final String? errorMessage;

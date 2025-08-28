@@ -1,9 +1,9 @@
 // FILE: lib/modules/visual_formula_editor/systems/graph_sync_system.dart
 // (English comments for code clarity)
-// MODIFIED v2.0: Added debug logging.
+// MODIFIED v3.0: Now passes the variable name map from the canvas state
+// to the GraphGeneratorSystem.
 
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/editor_events.dart';
@@ -15,39 +15,27 @@ class GraphSyncSystem extends System {
   @override
   void onAddedToWorld(NexusWorld world) {
     super.onAddedToWorld(world);
-    // RecalculateGraphEvent is fired after any graph modification.
     listen<RecalculateGraphEvent>(_onGraphChanged);
   }
 
   void _onGraphChanged(RecalculateGraphEvent event) {
-    debugPrint("[Log] GraphSyncSystem: Received RecalculateGraphEvent.");
     final canvasEntity = world.entities.values
         .firstWhereOrNull((e) => e.has<EditorCanvasComponent>());
     if (canvasEntity == null) return;
 
     final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
 
-    // Generate the new expression from the current graph state.
-    final generator = GraphGeneratorSystem(world);
+    // Pass the name map to the generator.
+    final generator = GraphGeneratorSystem(world, canvasState.variableNameMap);
     final newExpression = generator.generate();
 
-    debugPrint(
-        "[Log] GraphSyncSystem: Generated new expression: '$newExpression'.");
-
-    // Update the central canvas state with the new expression.
-    // The UI widget will listen to this change and update the text field.
     if (canvasState.currentExpression != newExpression) {
-      debugPrint(
-          "[Log] GraphSyncSystem: Updating canvas state with new expression.");
       canvasEntity.add(canvasState.copyWith(currentExpression: newExpression));
-    } else {
-      debugPrint(
-          "[Log] GraphSyncSystem: No change in expression, not updating canvas state.");
     }
   }
 
   @override
-  bool matches(Entity entity) => false; // Purely event-driven
+  bool matches(Entity entity) => false;
 
   @override
   void update(Entity entity, double dt) {}

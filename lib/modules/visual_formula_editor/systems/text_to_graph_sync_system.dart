@@ -1,9 +1,9 @@
 // FILE: lib/modules/visual_formula_editor/systems/text_to_graph_sync_system.dart
 // (English comments for code clarity)
-// MODIFIED v3.0: Corrected the constructor call for FormulaParserSystem.
+// MODIFIED v4.0: Now receives the variable name map from the parser and updates
+// the central EditorCanvasComponent with it.
 
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/pattern_methods/models/pattern_method_model.dart';
 import 'package:tailor_assistant/modules/ui/view_manager/view_manager_component.dart';
@@ -11,8 +11,6 @@ import 'package:tailor_assistant/modules/visual_formula_editor/components/editor
 import 'package:tailor_assistant/modules/visual_formula_editor/editor_events.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/systems/formula_parser_system.dart';
 
-/// A system that listens for changes in the formula text editor and
-/// regenerates the visual graph accordingly.
 class TextToGraphSyncSystem extends System {
   @override
   void onAddedToWorld(NexusWorld world) {
@@ -21,7 +19,6 @@ class TextToGraphSyncSystem extends System {
   }
 
   void _onFormulaTextChanged(UpdateFormulaFromTextEvent event) {
-    // 1. Get necessary state information
     final viewManager = world.entities.values
         .firstWhereOrNull((e) => e.has<ViewStateComponent>());
     if (viewManager == null) return;
@@ -31,24 +28,23 @@ class TextToGraphSyncSystem extends System {
     final formulaKey = viewState.activeFormulaKey;
     if (methodId == null || formulaKey == null) return;
 
-    final methodEntity = world.entities[methodId];
-    final methodComp = methodEntity?.get<PatternMethodComponent>();
-    if (methodComp == null) return;
-
-    // 2. Clear the current graph
     _clearCurrentGraph();
 
-    // 3. Parse the new expression and create new graph entities
-    // **FIX**: The constructor for FormulaParserSystem now takes no arguments.
     final parser = FormulaParserSystem();
-    final newEntities = parser.parse(formulaKey, event.expression);
+    final result = parser.parse(formulaKey, event.expression);
 
-    // 4. Add the new entities to the world
-    for (final entity in newEntities) {
+    for (final entity in result.entities) {
       world.addEntity(entity);
     }
 
-    // 5. Trigger a recalculation to update node states and sync back to text
+    // Store the new name map in the central canvas state.
+    final canvasEntity = world.entities.values
+        .firstWhereOrNull((e) => e.has<EditorCanvasComponent>());
+    final canvasState = canvasEntity?.get<EditorCanvasComponent>();
+    if (canvasEntity != null && canvasState != null) {
+      canvasEntity.add(canvasState.copyWith(variableNameMap: result.nameMap));
+    }
+
     world.eventBus.fire(RecalculateGraphEvent());
   }
 
@@ -68,7 +64,7 @@ class TextToGraphSyncSystem extends System {
   }
 
   @override
-  bool matches(Entity entity) => false; // Purely event-driven
+  bool matches(Entity entity) => false;
 
   @override
   void update(Entity entity, double dt) {}
