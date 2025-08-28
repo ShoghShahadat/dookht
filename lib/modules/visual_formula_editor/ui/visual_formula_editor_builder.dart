@@ -1,14 +1,14 @@
 // FILE: lib/modules/visual_formula_editor/ui/visual_formula_editor_builder.dart
 // (English comments for code clarity)
-// REFACTORED v5.0: This file is now a clean entry point, delegating all UI work.
+// MODIFIED v1.1: Updated to use the new, modular VisualFormulaEditorScreen.
 
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/ui/view_manager/view_manager_component.dart';
-import 'package:tailor_assistant/modules/visual_formula_editor/ui/widgets/visual_formula_editor_widget.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/ui/screens/visual_formula_editor_screen.dart';
 
 /// The main IWidgetBuilder for the visual formula editor feature.
-/// Its sole responsibility is to find the correct entity IDs and build the main widget.
+/// Its sole responsibility is to find the correct entity IDs and build the main screen widget.
 class VisualFormulaEditorBuilder implements IWidgetBuilder {
   @override
   Widget build(
@@ -23,8 +23,8 @@ class VisualFormulaEditorBuilder implements IWidgetBuilder {
           child: Text('No method selected for visual editing.'));
     }
 
-    // Delegate the entire UI construction to the specialized widget.
-    return VisualFormulaEditorWidget(
+    // Delegate the entire UI construction to the new specialized screen widget.
+    return VisualFormulaEditorScreen(
       renderingSystem: rs,
       methodId: activeMethodId,
       editorEntityId: entityId,
