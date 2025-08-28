@@ -1,10 +1,17 @@
 // FILE: lib/modules/visual_formula_editor/visual_formula_editor_module.dart
 // (English comments for code clarity)
+// FIX v1.3: Added the new EditorStateSystem to the module.
 
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/editor_events.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/formula_evaluation_system.dart';
-import 'package:tailor_assistant/modules/visual_formula_editor/visual_editor_system.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/systems/editor_connection_management_system.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/systems/editor_context_menu_system.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/systems/editor_gesture_system.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/systems/editor_interaction_system.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/systems/editor_node_management_system.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/systems/editor_state_system.dart';
 
 // A helper class to satisfy the SystemProvider interface.
 class _SingleSystemProvider implements SystemProvider {
@@ -79,6 +86,10 @@ class VisualFormulaEditorModule extends NexusModule {
       ))
       ..add(LifecyclePolicyComponent(isPersistent: true));
     world.addEntity(outputNode);
+
+    // Fire an initial calculation event after a microtask delay
+    // to ensure all entities are registered before the first calculation.
+    Future.microtask(() => world.eventBus.fire(RecalculateGraphEvent()));
   }
 
   @override
@@ -87,8 +98,15 @@ class VisualFormulaEditorModule extends NexusModule {
   @override
   List<SystemProvider> get systemProviders => [
         _SingleSystemProvider([
-          VisualEditorSystem(),
-          FormulaEvaluationSystem(), // ADDED: The evaluation engine
+          // The new, specialized systems
+          EditorGestureSystem(),
+          EditorInteractionSystem(),
+          EditorNodeManagementSystem(),
+          EditorConnectionManagementSystem(),
+          EditorContextMenuSystem(),
+          EditorStateSystem(), // FIX: Added the new state management system
+          // The evaluation engine remains
+          FormulaEvaluationSystem(),
         ])
       ];
 }

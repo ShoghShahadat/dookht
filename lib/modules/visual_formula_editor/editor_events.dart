@@ -1,6 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/editor_events.dart
 // (English comments for code clarity)
-// MODIFIED v3.1: Added new gesture events and simplified others.
+// This is the complete and corrected version of the events file.
 
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
@@ -27,6 +27,30 @@ class CanvasTapUpEvent {
   final double localX;
   final double localY;
   CanvasTapUpEvent({required this.localX, required this.localY});
+}
+
+class CanvasPanStartEvent {
+  final double localX;
+  final double localY;
+  CanvasPanStartEvent({required this.localX, required this.localY});
+}
+
+class CanvasPanUpdateEvent {
+  final double deltaX;
+  final double deltaY;
+  final double localX;
+  final double localY;
+  CanvasPanUpdateEvent(
+      {required this.deltaX,
+      required this.deltaY,
+      required this.localX,
+      required this.localY});
+}
+
+class CanvasPanEndEvent {
+  final double localX;
+  final double localY;
+  CanvasPanEndEvent({required this.localX, required this.localY});
 }
 
 class CanvasLongPressStartEvent {
@@ -59,3 +83,5 @@ class DeleteConnectionEvent {
   final EntityId connectionId;
   DeleteConnectionEvent(this.connectionId);
 }
+
+class RecalculateGraphEvent {}

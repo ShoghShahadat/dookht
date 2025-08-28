@@ -1,6 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/ui/widgets/visual_formula_editor_widget.dart
 // (English comments for code clarity)
-// FIX v2.3: Corrected the event dispatching syntax.
+// FIX v1.5: Re-added the onLongPressStart gesture handler to trigger the context menu.
 
 import 'dart:ui';
 import 'package:flutter/gestures.dart';
@@ -54,6 +54,16 @@ class _VisualFormulaEditorWidgetState extends State<VisualFormulaEditorWidget> {
     }
     final textColor = _getTextColor();
 
+    final nodeIds = rs.getAllIdsWithTag('node_component');
+    final connectionIds = rs.getAllIdsWithTag('connection_component');
+
+    final allNotifiers = <Listenable>[
+      rs.getNotifier(widget.editorEntityId),
+      ...nodeIds.map((id) => rs.getNotifier(id)),
+      ...connectionIds.map((id) => rs.getNotifier(id)),
+    ];
+    final mergedListenable = Listenable.merge(allNotifiers);
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -64,15 +74,12 @@ class _VisualFormulaEditorWidgetState extends State<VisualFormulaEditorWidget> {
         centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: textColor),
-          // FIX: Correctly dispatch the event
           onPressed: () => rs.manager?.send(ShowMethodManagementEvent()),
         ),
       ),
       body: AnimatedBuilder(
-        animation: rs.getNotifier(widget.editorEntityId),
+        animation: mergedListenable,
         builder: (context, _) {
-          final nodeIds = rs.getAllIdsWithTag('node_component');
-          final connectionIds = rs.getAllIdsWithTag('connection_component');
           final canvasState =
               rs.get<EditorCanvasComponent>(widget.editorEntityId);
 
@@ -91,32 +98,7 @@ class _VisualFormulaEditorWidgetState extends State<VisualFormulaEditorWidget> {
             children: [
               SizedBox.expand(
                 child: GestureDetector(
-                  onTapUp: (details) {
-                    final canvasState =
-                        rs.get<EditorCanvasComponent>(widget.editorEntityId);
-                    if (canvasState == null) return;
-                    final canvasX =
-                        (details.localPosition.dx - canvasState.panX) /
-                            canvasState.zoom;
-                    final canvasY =
-                        (details.localPosition.dy - canvasState.panY) /
-                            canvasState.zoom;
-                    rs.manager?.send(
-                        CanvasTapUpEvent(localX: canvasX, localY: canvasY));
-                  },
-                  onLongPressStart: (details) {
-                    final canvasState =
-                        rs.get<EditorCanvasComponent>(widget.editorEntityId);
-                    if (canvasState == null) return;
-                    final canvasX =
-                        (details.localPosition.dx - canvasState.panX) /
-                            canvasState.zoom;
-                    final canvasY =
-                        (details.localPosition.dy - canvasState.panY) /
-                            canvasState.zoom;
-                    rs.manager?.send(CanvasLongPressStartEvent(
-                        localX: canvasX, localY: canvasY));
-                  },
+                  // Pan & Zoom
                   onScaleStart: (details) {
                     rs.manager?.send(CanvasScaleStartEvent(
                       focalX: details.localFocalPoint.dx,
@@ -133,6 +115,49 @@ class _VisualFormulaEditorWidgetState extends State<VisualFormulaEditorWidget> {
                   onScaleEnd: (details) {
                     rs.manager?.send(CanvasScaleEndEvent());
                   },
+
+                  // Discrete Tap
+                  onTapUp: (details) {
+                    final canvasState =
+                        rs.get<EditorCanvasComponent>(widget.editorEntityId);
+                    if (canvasState == null) return;
+                    final canvasX =
+                        (details.localPosition.dx - canvasState.panX) /
+                            canvasState.zoom;
+                    final canvasY =
+                        (details.localPosition.dy - canvasState.panY) /
+                            canvasState.zoom;
+                    rs.manager?.send(
+                        CanvasTapUpEvent(localX: canvasX, localY: canvasY));
+                  },
+
+                  // Dragging and Connecting
+                  onPanStart: (details) {
+                    rs.manager?.send(CanvasPanStartEvent(
+                        localX: details.localPosition.dx,
+                        localY: details.localPosition.dy));
+                  },
+                  onPanUpdate: (details) {
+                    rs.manager?.send(CanvasPanUpdateEvent(
+                        deltaX: details.delta.dx,
+                        deltaY: details.delta.dy,
+                        localX: details.localPosition.dx,
+                        localY: details.localPosition.dy));
+                  },
+                  onPanEnd: (details) {
+                    rs.manager?.send(CanvasPanEndEvent(
+                      localX: details.globalPosition.dx,
+                      localY: details.globalPosition.dy,
+                    ));
+                  },
+
+                  // FIX: Re-added LongPress for context menu
+                  onLongPressStart: (details) {
+                    rs.manager?.send(CanvasLongPressStartEvent(
+                        localX: details.localPosition.dx,
+                        localY: details.localPosition.dy));
+                  },
+
                   child: CustomPaint(
                     painter: FormulaCanvasPainter(
                       renderingSystem: rs,
@@ -140,7 +165,7 @@ class _VisualFormulaEditorWidgetState extends State<VisualFormulaEditorWidget> {
                       connectionIds: connectionIds,
                       canvasState: canvasState,
                     ),
-                    child: SizedBox.expand(),
+                    child: const SizedBox.expand(),
                   ),
                 ),
               ),
@@ -173,6 +198,7 @@ class _VisualFormulaEditorWidgetState extends State<VisualFormulaEditorWidget> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
             child: Container(
+              width: 180,
               decoration: BoxDecoration(
                 color: Colors.grey.shade800.withOpacity(0.8),
                 borderRadius: BorderRadius.circular(8),

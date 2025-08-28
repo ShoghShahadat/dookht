@@ -1,6 +1,7 @@
 // FILE: lib/modules/visual_formula_editor/components/editor_components.dart
 // (English comments for code clarity)
 // FIX v4.1: Added the missing copyWith methods to components for immutable updates.
+// FIX v1.1: Corrected typos in the EditorCanvasComponent's copyWith method signature and a stray character.
 
 import 'package:nexus/nexus.dart';
 
@@ -144,7 +145,7 @@ class EditorCanvasComponent extends Component with SerializableComponent {
   final String? connectionStartPortId;
   final double? connectionDraftX;
   final double? connectionDraftY;
-  
+
   final Map<String, double> previewInputValues;
 
   final EntityId? contextMenuNodeId;
@@ -182,7 +183,8 @@ class EditorCanvasComponent extends Component with SerializableComponent {
     bool clearConnectionDraftY = false,
     Map<String, double>? previewInputValues,
     EntityId? contextMenuNodeId,
-    bool clearContext MenuNodeId = false,
+    // FIX: Corrected typo from 'clearContext MenuNodeId' to 'clearContextMenuNodeId'
+    bool clearContextMenuNodeId = false,
     double? contextMenuX,
     bool clearContextMenuX = false,
     double? contextMenuY,
@@ -192,15 +194,28 @@ class EditorCanvasComponent extends Component with SerializableComponent {
       panX: panX ?? this.panX,
       panY: panY ?? this.panY,
       zoom: zoom ?? this.zoom,
-      draggedEntityId: clearDraggedEntityId ? null : draggedEntityId ?? this.draggedEntityId,
-      connectionStartNodeId: clearConnectionStartNodeId ? null : connectionStartNodeId ?? this.connectionStartNodeId,
-      connectionStartPortId: clearConnectionStartPortId ? null : connectionStartPortId ?? this.connectionStartPortId,
-      connectionDraftX: clearConnectionDraftX ? null : connectionDraftX ?? this.connectionDraftX,
-      connectionDraftY: clearConnectionDraftY ? null : connectionDraftY ?? this.connectionDraftY,
+      draggedEntityId:
+          clearDraggedEntityId ? null : draggedEntityId ?? this.draggedEntityId,
+      connectionStartNodeId: clearConnectionStartNodeId
+          ? null
+          : connectionStartNodeId ?? this.connectionStartNodeId,
+      connectionStartPortId: clearConnectionStartPortId
+          ? null
+          : connectionStartPortId ?? this.connectionStartPortId,
+      connectionDraftX: clearConnectionDraftX
+          ? null
+          : connectionDraftX ?? this.connectionDraftX,
+      connectionDraftY: clearConnectionDraftY
+          ? null
+          : connectionDraftY ?? this.connectionDraftY,
       previewInputValues: previewInputValues ?? this.previewInputValues,
-      contextMenuNodeId: clearContextMenuNodeId ? null : contextMenuNodeId ?? this.contextMenuNodeId,
-      contextMenuX: clearContextMenuX ? null : contextMenuX ?? this.contextMenuX,
-      contextMenuY: clearContextMenuY ? null : contextMenuY ?? this.contextMenuY,
+      contextMenuNodeId: clearContextMenuNodeId
+          ? null
+          : contextMenuNodeId ?? this.contextMenuNodeId,
+      contextMenuX:
+          clearContextMenuX ? null : contextMenuX ?? this.contextMenuX,
+      contextMenuY:
+          clearContextMenuY ? null : contextMenuY ?? this.contextMenuY,
     );
   }
 

@@ -1,21 +1,29 @@
 // FILE: lib/modules/visual_formula_editor/formula_evaluation_system.dart
 // (English comments for code clarity)
+// FIX v1.1: Refactored the system to be event-driven instead of running every frame.
+// This is the primary fix for the infinite loop/hang issue.
 
 import 'package:collection/collection.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
+import 'package:tailor_assistant/modules/visual_formula_editor/editor_events.dart';
 
-/// The brain of the visual editor. Evaluates the node graph in real-time.
+/// The brain of the visual editor. Evaluates the node graph in response to events.
 class FormulaEvaluationSystem extends System {
   @override
-  bool matches(Entity entity) {
-    // This system runs when the canvas state changes, specifically the preview values.
-    return entity.has<EditorCanvasComponent>();
+  void onAddedToWorld(NexusWorld world) {
+    super.onAddedToWorld(world);
+    // Listen for the specific event to trigger a recalculation.
+    listen<RecalculateGraphEvent>(_onRecalculate);
   }
 
-  @override
-  void update(Entity entity, double dt) {
-    final canvasState = entity.get<EditorCanvasComponent>()!;
+  /// This method is now the core logic, triggered only when needed.
+  void _onRecalculate(RecalculateGraphEvent event) {
+    final canvasEntity = world.entities.values
+        .firstWhereOrNull((e) => e.has<EditorCanvasComponent>());
+    if (canvasEntity == null) return;
+
+    final canvasState = canvasEntity.get<EditorCanvasComponent>()!;
     final nodes =
         world.entities.values.where((e) => e.has<NodeComponent>()).toList();
     final connections = world.entities.values
@@ -24,7 +32,10 @@ class FormulaEvaluationSystem extends System {
 
     // 1. Clear previous states
     for (final node in nodes) {
-      node.remove<NodeStateComponent>();
+      // Only remove the state if it exists to avoid unnecessary notifications.
+      if (node.has<NodeStateComponent>()) {
+        node.remove<NodeStateComponent>();
+      }
     }
 
     // 2. Topological sort to get execution order
@@ -85,7 +96,12 @@ class FormulaEvaluationSystem extends System {
                 outputValues['result'] = a * b;
                 break;
               case '/':
-                outputValues['result'] = a / b;
+                // Avoid division by zero
+                if (b == 0) {
+                  error = 'تقسیم بر صفر';
+                } else {
+                  outputValues['result'] = a / b;
+                }
                 break;
             }
           }
@@ -123,17 +139,37 @@ class FormulaEvaluationSystem extends System {
     final queue = nodes.where((n) => inDegree[n.id] == 0).toList();
     final sorted = <Entity>[];
 
+    int processedCount = 0;
     while (queue.isNotEmpty) {
       final node = queue.removeAt(0);
       sorted.add(node);
+      processedCount++;
 
       for (final neighborId in graph[node.id]!) {
         inDegree[neighborId] = inDegree[neighborId]! - 1;
         if (inDegree[neighborId] == 0) {
-          queue.add(nodes.firstWhere((n) => n.id == neighborId));
+          final neighborNode =
+              nodes.firstWhereOrNull((n) => n.id == neighborId);
+          if (neighborNode != null) {
+            queue.add(neighborNode);
+          }
         }
       }
     }
+
+    if (processedCount != nodes.length) {
+      // This indicates a cycle in the graph.
+      // A more robust implementation would identify and report the cycle.
+      print(
+          "Error: Cycle detected in the formula graph. Evaluation may be incorrect.");
+    }
+
     return sorted;
   }
+
+  @override
+  bool matches(Entity entity) => false; // Now purely event-driven
+
+  @override
+  void update(Entity entity, double dt) {} // No longer used
 }
