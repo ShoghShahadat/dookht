@@ -56,6 +56,7 @@ export 'src/systems/persistence_system.dart'
 
 // --- Components ---
 export 'src/components/animation_component.dart';
+export 'src/events/component_events.dart';
 export 'src/components/animation_progress_component.dart';
 export 'src/components/api_request_component.dart';
 export 'src/components/api_status_component.dart';

@@ -9,8 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/method_management/ui/edit_method_builder.dart';
 // The 'hide' keyword resolves the name conflict for EditMethodBuilder.
-import 'package:tailor_assistant/modules/method_management/ui/method_management_builder.dart'
-    hide EditMethodBuilder;
+import 'package:tailor_assistant/modules/method_management/ui/method_management_builder.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/ui/visual_formula_editor_builder.dart';
 
 import '../calculations/ui/calculation_page_builder.dart';
