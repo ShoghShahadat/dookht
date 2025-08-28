@@ -1,6 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/editor_events.dart
 // (English comments for code clarity)
-// MODIFIED v2.0: Updated UpdateNodeDataEvent to support changing the label.
+// MODIFIED v3.0: Added UpdateFormulaFromTextEvent for the new text editor feature.
 
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
@@ -88,4 +88,10 @@ class UpdateNodeDataEvent {
   final String? newLabel; // Added to support renaming nodes
 
   UpdateNodeDataEvent({required this.nodeId, this.newData, this.newLabel});
+}
+
+// NEW EVENT: Fired from the UI when the text in the formula editor changes.
+class UpdateFormulaFromTextEvent {
+  final String expression;
+  UpdateFormulaFromTextEvent(this.expression);
 }

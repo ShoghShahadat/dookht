@@ -1,6 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/components/editor_components.dart
 // (English comments for code clarity)
-// MODIFIED v2.0: Added a `copyWith` method to PositionComponent for easier updates.
+// MODIFIED v3.0: Added `currentExpression` to EditorCanvasComponent for the text editor.
 
 import 'package:nexus/nexus.dart';
 
@@ -154,6 +154,9 @@ class EditorCanvasComponent extends Component with SerializableComponent {
   final EntityId? selectedEntityId;
   final EntityId? settingsNodeId;
 
+  // NEW: Holds the current textual representation of the formula graph.
+  final String currentExpression;
+
   EditorCanvasComponent({
     this.panX = 0.0,
     this.panY = 0.0,
@@ -169,6 +172,7 @@ class EditorCanvasComponent extends Component with SerializableComponent {
     this.contextMenuY,
     this.selectedEntityId,
     this.settingsNodeId,
+    this.currentExpression = '',
   });
 
   EditorCanvasComponent copyWith({
@@ -196,6 +200,7 @@ class EditorCanvasComponent extends Component with SerializableComponent {
     bool clearSelectedEntityId = false,
     EntityId? settingsNodeId,
     bool clearSettingsNodeId = false,
+    String? currentExpression,
   }) {
     return EditorCanvasComponent(
       panX: panX ?? this.panX,
@@ -228,6 +233,7 @@ class EditorCanvasComponent extends Component with SerializableComponent {
           : selectedEntityId ?? this.selectedEntityId,
       settingsNodeId:
           clearSettingsNodeId ? null : settingsNodeId ?? this.settingsNodeId,
+      currentExpression: currentExpression ?? this.currentExpression,
     );
   }
 
@@ -249,6 +255,7 @@ class EditorCanvasComponent extends Component with SerializableComponent {
       contextMenuY: (json['contextMenuY'] as num?)?.toDouble(),
       selectedEntityId: json['selectedEntityId'] as EntityId?,
       settingsNodeId: json['settingsNodeId'] as EntityId?,
+      currentExpression: json['currentExpression'] as String? ?? '',
     );
   }
 
@@ -268,6 +275,7 @@ class EditorCanvasComponent extends Component with SerializableComponent {
         'contextMenuY': contextMenuY,
         'selectedEntityId': selectedEntityId,
         'settingsNodeId': settingsNodeId,
+        'currentExpression': currentExpression,
       };
 
   @override
@@ -286,6 +294,7 @@ class EditorCanvasComponent extends Component with SerializableComponent {
         contextMenuY,
         selectedEntityId,
         settingsNodeId,
+        currentExpression,
       ];
 }
 
