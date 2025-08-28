@@ -1,8 +1,8 @@
 // FILE: lib/modules/visual_formula_editor/systems/formula_parser_system.dart
 // (English comments for code clarity)
-// MODIFIED v5.0: FINAL FIX - After creating an operator node from text,
-// it now adds an extra empty input port, mirroring the behavior of the
-// dynamic port system for a consistent user experience.
+// MODIFIED v6.0: FINAL, ADVANCED FIX - Implemented a recursive "flattening"
+// algorithm to convert chained operations (e.g., 1+2+3+4) into a single,
+// multi-input operator node for a much cleaner and more intuitive graph.
 
 import 'package:expressions/expressions.dart';
 import 'package:flutter/foundation.dart';
@@ -55,6 +55,31 @@ class FormulaParserSystem {
     return entities;
   }
 
+  /// Recursively flattens a chain of binary expressions with the same operator.
+  List<Expression> _flattenExpression(
+      BinaryExpression expression, String operator) {
+    final List<Expression> operands = [];
+
+    if (expression.left is BinaryExpression &&
+        (expression.left as BinaryExpression).operator.toString() == operator) {
+      operands.addAll(
+          _flattenExpression(expression.left as BinaryExpression, operator));
+    } else {
+      operands.add(expression.left);
+    }
+
+    if (expression.right is BinaryExpression &&
+        (expression.right as BinaryExpression).operator.toString() ==
+            operator) {
+      operands.addAll(
+          _flattenExpression(expression.right as BinaryExpression, operator));
+    } else {
+      operands.add(expression.right);
+    }
+
+    return operands;
+  }
+
   Entity? _parseNode(Expression expression, int depth, List<Entity> entities) {
     final x = 600 - (depth * _xStep);
     final y = _yPositions.update(depth, (value) => value + _yStep,
@@ -77,47 +102,43 @@ class FormulaParserSystem {
       entities.add(node);
       return node;
     } else if (expression is BinaryExpression) {
+      final operator = expression.operator.toString();
+      final operands = _flattenExpression(expression, operator);
+
       final operatorNode = createNodeFromType(NodeType.operator, x, y);
       final opComp = operatorNode.get<NodeComponent>()!;
-      opComp.data['operator'] = expression.operator.toString();
-      operatorNode.add(opComp.copyWith(label: expression.operator.toString()));
-      entities.add(operatorNode);
+      opComp.data['operator'] = operator;
 
-      final leftEntity = _parseNode(expression.left, depth + 1, entities);
-      final rightEntity = _parseNode(expression.right, depth + 1, entities);
+      // Clear default inputs and build new ones
+      final newInputs = <NodePort>[];
+      for (int i = 0; i < operands.length; i++) {
+        final portId = 'in_$i';
+        final portLabel = String.fromCharCode('A'.codeUnitAt(0) + i);
+        newInputs.add(NodePort(id: portId, label: portLabel));
 
-      if (leftEntity != null) {
-        final conn = Entity()
-          ..add(ConnectionComponent(
-              fromNodeId: leftEntity.id,
-              fromPortId: leftEntity.get<NodeComponent>()!.outputs.first.id,
-              toNodeId: operatorNode.id,
-              toPortId: 'in_0'))
-          ..add(TagsComponent({'connection_component'}));
-        entities.add(conn);
-      }
-      if (rightEntity != null) {
-        final conn = Entity()
-          ..add(ConnectionComponent(
-              fromNodeId: rightEntity.id,
-              fromPortId: rightEntity.get<NodeComponent>()!.outputs.first.id,
-              toNodeId: operatorNode.id,
-              toPortId: 'in_1'))
-          ..add(TagsComponent({'connection_component'}));
-        entities.add(conn);
+        final operandEntity = _parseNode(operands[i], depth + 1, entities);
+        if (operandEntity != null) {
+          final conn = Entity()
+            ..add(ConnectionComponent(
+                fromNodeId: operandEntity.id,
+                fromPortId:
+                    operandEntity.get<NodeComponent>()!.outputs.first.id,
+                toNodeId: operatorNode.id,
+                toPortId: portId))
+            ..add(TagsComponent({'connection_component'}));
+          entities.add(conn);
+        }
       }
 
-      // **MAJOR FIX**: Add an extra empty input port to operator nodes,
-      // just like the DynamicPortSystem does for visually created nodes.
-      final currentOpComp = operatorNode.get<NodeComponent>()!;
-      final newPortIndex = currentOpComp.inputs.length;
+      // Add one extra empty port for chaining
+      final newPortIndex = newInputs.length;
       final newPortId = 'in_$newPortIndex';
       final newPortLabel =
           String.fromCharCode('A'.codeUnitAt(0) + newPortIndex);
-      final newInputs = List<NodePort>.from(currentOpComp.inputs)
-        ..add(NodePort(id: newPortId, label: newPortLabel));
+      newInputs.add(NodePort(id: newPortId, label: newPortLabel));
 
-      operatorNode.add(currentOpComp.copyWith(inputs: newInputs));
+      operatorNode.add(opComp.copyWith(label: operator, inputs: newInputs));
+      entities.add(operatorNode);
 
       return operatorNode;
     }
