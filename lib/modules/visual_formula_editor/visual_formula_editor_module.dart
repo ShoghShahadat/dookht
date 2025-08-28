@@ -1,6 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/visual_formula_editor_module.dart
 // (English comments for code clarity)
-// MODIFIED v4.0: Added the new GraphSyncSystem to the module.
+// MODIFIED v5.0: Added the new TextToGraphSyncSystem.
 
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
@@ -13,6 +13,8 @@ import 'package:tailor_assistant/modules/visual_formula_editor/systems/editor_no
 import 'package:tailor_assistant/modules/visual_formula_editor/systems/editor_state_system.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/systems/dynamic_port_system.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/systems/graph_sync_system.dart';
+// NEW IMPORT
+import 'package:tailor_assistant/modules/visual_formula_editor/systems/text_to_graph_sync_system.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/systems/visual_formula_lifecycle_system.dart';
 
 class _SingleSystemProvider implements SystemProvider {
@@ -49,8 +51,8 @@ class VisualFormulaEditorModule extends NexusModule {
           FormulaEvaluationSystem(),
           // Lifecycle and Sync systems
           VisualFormulaLifecycleSystem(),
-          // NEW: System for Graph -> Text synchronization
-          GraphSyncSystem(),
+          GraphSyncSystem(), // Graph -> Text
+          TextToGraphSyncSystem(), // NEW: Text -> Graph
         ])
       ];
 }

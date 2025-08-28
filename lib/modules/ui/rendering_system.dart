@@ -4,6 +4,7 @@
 // that there is a name collision with 'EditMethodBuilder' in one of the imported
 // files. Hiding it from the 'method_management_builder' import is the correct
 // and definitive solution to resolve this ambiguity.
+// MODIFIED v5.0: Hid the theme selector from all views.
 
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
@@ -36,8 +37,8 @@ class AppRenderingSystem extends FlutterRenderingSystem {
       animation: this,
       builder: (context, child) {
         final backgroundId = getAllIdsWithTag('main_background').firstOrNull;
-        final themeSelectorId =
-            getAllIdsWithTag('theme_selector_container').firstOrNull;
+        // final themeSelectorId =
+        //     getAllIdsWithTag('theme_selector_container').firstOrNull;
         final viewManagerId = getAllIdsWithTag('view_manager').firstOrNull;
 
         return Scaffold(
@@ -45,13 +46,14 @@ class AppRenderingSystem extends FlutterRenderingSystem {
             children: [
               if (backgroundId != null) _buildBackground(context, backgroundId),
               if (viewManagerId != null) _buildMainView(context, viewManagerId),
-              if (themeSelectorId != null)
-                Positioned(
-                  bottom: 20,
-                  left: 20,
-                  right: 20,
-                  child: _buildThemeSelector(context, themeSelectorId),
-                ),
+              // THEME SELECTOR IS NOW HIDDEN
+              // if (themeSelectorId != null)
+              //   Positioned(
+              //     bottom: 20,
+              //     left: 20,
+              //     right: 20,
+              //     child: _buildThemeSelector(context, themeSelectorId),
+              //   ),
             ],
           ),
         );
