@@ -1,6 +1,8 @@
 // FILE: lib/modules/visual_formula_editor/ui/screens/visual_formula_editor_screen.dart
 // (English comments for code clarity)
-// MODIFIED v2.0: Added the new ContextMenuWidget to the stack to handle long-press actions.
+// MODIFIED v3.0: MAJOR BUG FIX - Refactored settings panel logic to prevent double-opening.
+// The logic is moved from the build method to a dedicated listener (_handleEditorStateChange)
+// to ensure the side-effect (showing the bottom sheet) happens only once per state change.
 
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
@@ -32,7 +34,93 @@ class VisualFormulaEditorScreen extends StatefulWidget {
 }
 
 class _VisualFormulaEditorScreenState extends State<VisualFormulaEditorScreen> {
-  EntityId? _currentlyEditingNodeId;
+  // Local state to track if a settings sheet is currently being shown or is visible.
+  EntityId? _currentlyVisibleSettingsNodeId;
+
+  @override
+  void initState() {
+    super.initState();
+    // Subscribe to changes in the editor's state.
+    widget.renderingSystem
+        .getNotifier(widget.editorEntityId)
+        .addListener(_handleEditorStateChange);
+  }
+
+  @override
+  void didUpdateWidget(covariant VisualFormulaEditorScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the entity ID changes (unlikely but good practice), update the listener.
+    if (widget.editorEntityId != oldWidget.editorEntityId) {
+      widget.renderingSystem
+          .getNotifier(oldWidget.editorEntityId)
+          .removeListener(_handleEditorStateChange);
+      widget.renderingSystem
+          .getNotifier(widget.editorEntityId)
+          .addListener(_handleEditorStateChange);
+    }
+  }
+
+  @override
+  void dispose() {
+    // Clean up the listener to prevent memory leaks.
+    widget.renderingSystem
+        .getNotifier(widget.editorEntityId)
+        .removeListener(_handleEditorStateChange);
+    super.dispose();
+  }
+
+  /// This listener is the single source of truth for triggering the settings panel.
+  void _handleEditorStateChange() {
+    final canvasState = widget.renderingSystem
+        .get<EditorCanvasComponent>(widget.editorEntityId);
+    if (canvasState == null) return;
+
+    // Condition to SHOW the panel:
+    // The logic world wants a panel to be open (`settingsNodeId` is not null)
+    // AND we are not currently tracking a visible panel.
+    if (canvasState.settingsNodeId != null &&
+        canvasState.settingsNodeId != _currentlyVisibleSettingsNodeId) {
+      // Update our local tracker immediately.
+      _currentlyVisibleSettingsNodeId = canvasState.settingsNodeId;
+
+      // Schedule the bottom sheet to be shown after the current build frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showSettingsBottomSheet(
+              context, widget.renderingSystem, canvasState.settingsNodeId!);
+        }
+      });
+    }
+    // Condition to RESET our local tracker:
+    // The logic world says no panel should be open (`settingsNodeId` is null)
+    // AND we are still tracking a visible panel locally.
+    else if (canvasState.settingsNodeId == null &&
+        _currentlyVisibleSettingsNodeId != null) {
+      _currentlyVisibleSettingsNodeId = null;
+    }
+  }
+
+  void _showSettingsBottomSheet(
+      BuildContext context, FlutterRenderingSystem rs, EntityId nodeId) {
+    final node = rs.get<NodeComponent>(nodeId);
+    if (node == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      isScrollControlled: true, // Important for text fields
+      builder: (ctx) => NodeSettingsPanel(
+        renderingSystem: rs,
+        nodeId: nodeId,
+        node: node,
+      ),
+    ).whenComplete(() {
+      // When the sheet is dismissed by any means (dragging, back button, etc.),
+      // send an event to the logic world to update the official state.
+      // This ensures a clean, one-way data flow.
+      rs.manager?.send(CloseNodeSettingsEvent());
+    });
+  }
 
   Color _getTextColor() {
     final rs = widget.renderingSystem;
@@ -86,36 +174,21 @@ class _VisualFormulaEditorScreenState extends State<VisualFormulaEditorScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Logic to show/hide the settings panel
-          if (canvasState.settingsNodeId != null &&
-              canvasState.settingsNodeId != _currentlyEditingNodeId) {
-            _currentlyEditingNodeId = canvasState.settingsNodeId;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                _showSettingsBottomSheet(
-                    context, rs, canvasState.settingsNodeId!);
-              }
-            });
-          } else if (canvasState.settingsNodeId == null &&
-              _currentlyEditingNodeId != null) {
-            _currentlyEditingNodeId = null;
-          }
+          // The logic for showing the panel has been moved to the listener.
+          // The build method is now clean and only responsible for rendering.
 
           return Stack(
             children: [
-              // The main interactive canvas layer
               InteractiveCanvasLayer(
                 renderingSystem: rs,
                 nodeIds: nodeIds,
                 connectionIds: connectionIds,
                 canvasState: canvasState,
               ),
-              // The context menu for actions like delete
               ContextMenuWidget(
                 renderingSystem: rs,
                 canvasState: canvasState,
               ),
-              // UI Overlays
               ToolbarWidget(renderingSystem: rs),
               PreviewPanelWidget(
                 renderingSystem: rs,
@@ -128,24 +201,5 @@ class _VisualFormulaEditorScreenState extends State<VisualFormulaEditorScreen> {
         },
       ),
     );
-  }
-
-  void _showSettingsBottomSheet(
-      BuildContext context, FlutterRenderingSystem rs, EntityId nodeId) {
-    final node = rs.get<NodeComponent>(nodeId);
-    if (node == null) return;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.grey[900],
-      builder: (ctx) => NodeSettingsPanel(
-        renderingSystem: rs,
-        nodeId: nodeId,
-        node: node,
-      ),
-    ).whenComplete(() {
-      rs.manager?.send(CloseNodeSettingsEvent());
-      _currentlyEditingNodeId = null;
-    });
   }
 }
