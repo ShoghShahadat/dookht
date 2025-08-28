@@ -1,7 +1,7 @@
 // FILE: lib/modules/visual_formula_editor/formula_evaluation_system.dart
 // (English comments for code clarity)
-// FIX v2.0: Implemented the missing logic for NodeType.output.
-// The system now correctly calculates and propagates values to output nodes.
+// FIX v5.0: Added a default case to the operator switch statement to make it robust
+// and satisfy Dart's null safety analysis completely.
 
 import 'package:collection/collection.dart';
 import 'package:nexus/nexus.dart';
@@ -13,11 +13,9 @@ class FormulaEvaluationSystem extends System {
   @override
   void onAddedToWorld(NexusWorld world) {
     super.onAddedToWorld(world);
-    // Listen for the specific event to trigger a recalculation.
     listen<RecalculateGraphEvent>(_onRecalculate);
   }
 
-  /// This method is now the core logic, triggered only when needed.
   void _onRecalculate(RecalculateGraphEvent event) {
     final canvasEntity = world.entities.values
         .firstWhereOrNull((e) => e.has<EditorCanvasComponent>());
@@ -30,17 +28,14 @@ class FormulaEvaluationSystem extends System {
         .where((e) => e.has<ConnectionComponent>())
         .toList();
 
-    // 1. Clear previous states
     for (final node in nodes) {
       if (node.has<NodeStateComponent>()) {
         node.remove<NodeStateComponent>();
       }
     }
 
-    // 2. Topological sort to get execution order
     final sortedNodes = _topologicalSort(nodes, connections);
 
-    // 3. Evaluate each node in order
     for (final node in sortedNodes) {
       _evaluateNode(node, canvasState.previewInputValues);
     }
@@ -51,7 +46,6 @@ class FormulaEvaluationSystem extends System {
     final inputs = <String, dynamic>{};
     String? error;
 
-    // Gather inputs from connected nodes
     for (final inputPort in nodeComp.inputs) {
       final connection = world.entities.values.firstWhereOrNull((e) {
         final c = e.get<ConnectionComponent>();
@@ -79,43 +73,53 @@ class FormulaEvaluationSystem extends System {
           outputValues['value'] = nodeComp.data['value'];
           break;
         case NodeType.operator:
-          final a = inputs['a'] as num?;
-          final b = inputs['b'] as num?;
-          if (a == null || b == null) {
-            error = 'ورودی‌ها متصل نیستند';
+          final operator = nodeComp.data['operator'] as String? ?? '+';
+          final inputValues = inputs.values.whereType<num>().toList();
+
+          if (inputValues.isEmpty) {
+            // No error, just no output
+          } else if (inputValues.length == 1) {
+            outputValues['result'] = inputValues.first;
           } else {
-            switch (nodeComp.data['operator']) {
+            num result = 0;
+            switch (operator) {
               case '+':
-                outputValues['result'] = a + b;
+                result = inputValues.reduce((a, b) => a + b);
                 break;
               case '-':
-                outputValues['result'] = a - b;
+                result = inputValues
+                    .sublist(1)
+                    .fold(inputValues[0], (prev, e) => prev - e);
                 break;
               case '*':
-                outputValues['result'] = a * b;
+                result = inputValues.reduce((a, b) => a * b);
                 break;
               case '/':
-                if (b == 0) {
+                if (inputValues.sublist(1).any((val) => val == 0)) {
                   error = 'تقسیم بر صفر';
                 } else {
-                  outputValues['result'] = a / b;
+                  result = inputValues
+                      .sublist(1)
+                      .fold(inputValues[0], (prev, e) => prev / e);
                 }
                 break;
+              default:
+                // This default case makes the logic robust.
+                error = 'عملگر ناشناخته';
+                break;
+            }
+            if (error == null) {
+              outputValues['result'] = result;
             }
           }
           break;
         case NodeType.output:
-          // *** BUG FIX: Implemented the logic for output nodes ***
-          // An output node simply takes its input and presents it.
           final value = inputs['value'];
           if (value != null) {
             outputValues['value'] = value;
-          } else {
-            // If not connected, show nothing.
           }
           break;
         case NodeType.condition:
-          // TODO: Implement later
           break;
       }
     } catch (e) {
@@ -137,8 +141,11 @@ class FormulaEvaluationSystem extends System {
 
     for (final connEntity in connections) {
       final conn = connEntity.get<ConnectionComponent>()!;
-      graph[conn.fromNodeId]!.add(conn.toNodeId);
-      inDegree[conn.toNodeId] = (inDegree[conn.toNodeId] ?? 0) + 1;
+      if (graph.containsKey(conn.fromNodeId) &&
+          inDegree.containsKey(conn.toNodeId)) {
+        graph[conn.fromNodeId]!.add(conn.toNodeId);
+        inDegree[conn.toNodeId] = (inDegree[conn.toNodeId] ?? 0) + 1;
+      }
     }
 
     final queue = nodes.where((n) => inDegree[n.id] == 0).toList();
@@ -149,6 +156,8 @@ class FormulaEvaluationSystem extends System {
       final node = queue.removeAt(0);
       sorted.add(node);
       processedCount++;
+
+      if (graph[node.id] == null) continue;
 
       for (final neighborId in graph[node.id]!) {
         inDegree[neighborId] = inDegree[neighborId]! - 1;

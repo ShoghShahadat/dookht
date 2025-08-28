@@ -1,6 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/utils/editor_helpers.dart
 // (English comments for code clarity)
-// This file contains pure utility functions for geometry and node creation.
+// MODIFIED v2.0: Updated operator node creation to start with two dynamic inputs.
 
 import 'dart:math';
 import 'dart:ui';
@@ -110,7 +110,7 @@ Entity createNodeFromType(NodeType type, double x, double y) {
             ..width = 150
             ..height = 80,
           outputs: [NodePort(id: 'value', label: 'مقدار')],
-          data: {'value': 4.0});
+          data: {'value': 1.0});
       break;
     case NodeType.operator:
       nodeComp = NodeComponent(
@@ -118,13 +118,13 @@ Entity createNodeFromType(NodeType type, double x, double y) {
           type: type,
           position: position
             ..width = 80
-            ..height = 100,
+            ..height = 110, // Adjusted for two initial inputs
           data: {
             'operator': '+'
           },
           inputs: [
-            NodePort(id: 'a', label: 'A'),
-            NodePort(id: 'b', label: 'B')
+            NodePort(id: 'in_0', label: 'A'),
+            NodePort(id: 'in_1', label: 'B') // Start with two inputs
           ],
           outputs: [
             NodePort(id: 'result', label: 'نتیجه')

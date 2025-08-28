@@ -1,7 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/ui/widgets/node_widget.dart
 // (English comments for code clarity)
-// REFACTORED v3.0: Added visual rendering for input and output ports (the circles).
-// The widget now correctly displays the connection points.
+// REFACTORED v4.0: Enabled settings icon for input and output nodes.
 
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
@@ -52,15 +51,17 @@ class NodeWidget extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             Center(
-              child: Text(
-                '${node.label}\n${_getNodeDisplayValue(nodeState)}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Text(
+                  '${node.label}\n${_getNodeDisplayValue(nodeState)}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
-            // Render input ports
             ..._buildPorts(node, isInput: true),
-            // Render output ports
             ..._buildPorts(node, isInput: false),
             if (_nodeHasSettings(node.type))
               Positioned(
@@ -84,12 +85,11 @@ class NodeWidget extends StatelessWidget {
     );
   }
 
-  /// Builds the list of port widgets for either input or output.
   List<Widget> _buildPorts(NodeComponent node, {required bool isInput}) {
     final ports = isInput ? node.inputs : node.outputs;
     if (ports.isEmpty) return [];
 
-    const double portRadius = 10.0;
+    const double portRadius = 8.0;
     const double portSize = portRadius * 2;
 
     return List.generate(ports.length, (index) {
@@ -146,6 +146,9 @@ class NodeWidget extends StatelessWidget {
   }
 
   bool _nodeHasSettings(NodeType type) {
-    return type == NodeType.operator || type == NodeType.constant;
+    return type == NodeType.operator ||
+        type == NodeType.constant ||
+        type == NodeType.input ||
+        type == NodeType.output;
   }
 }

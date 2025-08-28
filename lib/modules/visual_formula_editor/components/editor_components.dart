@@ -1,6 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/components/editor_components.dart
 // (English comments for code clarity)
-// MODIFIED v1.1: Added selectedEntityId and settingsNodeId to manage UI state.
+// MODIFIED v2.0: Added a `copyWith` method to PositionComponent for easier updates.
 
 import 'package:nexus/nexus.dart';
 
@@ -151,7 +151,6 @@ class EditorCanvasComponent extends Component with SerializableComponent {
   final double? contextMenuX;
   final double? contextMenuY;
 
-  // FIX: Added state for selection and settings panel
   final EntityId? selectedEntityId;
   final EntityId? settingsNodeId;
 

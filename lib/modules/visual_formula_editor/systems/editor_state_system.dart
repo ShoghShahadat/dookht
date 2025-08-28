@@ -1,6 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/systems/editor_state_system.dart
 // (English comments for code clarity)
-// MODIFIED v1.2: Added handlers for new selection and settings events.
+// MODIFIED v2.0: Updated _onUpdateNodeData to handle label changes.
 
 import 'package:collection/collection.dart';
 import 'package:nexus/nexus.dart';
@@ -71,13 +71,14 @@ class EditorStateSystem extends System {
     final nodeComp = nodeEntity.get<NodeComponent>();
     if (nodeComp == null) return;
 
-    final newCombinedData = Map<String, dynamic>.from(nodeComp.data)
-      ..addAll(event.newData);
+    final newCombinedData = (event.newData != null)
+        ? (Map<String, dynamic>.from(nodeComp.data)..addAll(event.newData!))
+        : nodeComp.data;
 
-    // Also update the label if the operator changes
-    String newLabel = nodeComp.label;
-    if (event.newData.containsKey('operator')) {
-      newLabel = event.newData['operator'];
+    // Prioritize the new label if provided, otherwise check for operator change.
+    String newLabel = event.newLabel ?? nodeComp.label;
+    if (event.newData?.containsKey('operator') ?? false) {
+      newLabel = event.newData!['operator'];
     }
 
     nodeEntity.add(nodeComp.copyWith(data: newCombinedData, label: newLabel));

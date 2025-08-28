@@ -1,6 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/editor_events.dart
 // (English comments for code clarity)
-// MODIFIED v1.7: Added events for selection and settings management.
+// MODIFIED v2.0: Updated UpdateNodeDataEvent to support changing the label.
 
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/visual_formula_editor/components/editor_components.dart';
@@ -70,7 +70,6 @@ class DeleteConnectionEvent {
 
 class RecalculateGraphEvent {}
 
-// FIX: New events for managing selection and settings
 class SelectEntityEvent {
   final EntityId? entityId;
   SelectEntityEvent(this.entityId);
@@ -85,6 +84,8 @@ class CloseNodeSettingsEvent {}
 
 class UpdateNodeDataEvent {
   final EntityId nodeId;
-  final Map<String, dynamic> newData;
-  UpdateNodeDataEvent({required this.nodeId, required this.newData});
+  final Map<String, dynamic>? newData;
+  final String? newLabel; // Added to support renaming nodes
+
+  UpdateNodeDataEvent({required this.nodeId, this.newData, this.newLabel});
 }

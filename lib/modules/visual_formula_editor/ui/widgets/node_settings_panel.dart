@@ -1,6 +1,6 @@
 // FILE: lib/modules/visual_formula_editor/ui/widgets/node_settings_panel.dart
 // (English comments for code clarity)
-// This widget builds the content for the settings bottom sheet.
+// MODIFIED v2.0: Added settings panels for Input and Output nodes to allow renaming.
 
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
@@ -26,6 +26,10 @@ class NodeSettingsPanel extends StatelessWidget {
         return _buildOperatorSettings(context);
       case NodeType.constant:
         return _buildConstantSettings(context);
+      case NodeType.input:
+        return _buildLabelSettings(context, "ورودی");
+      case NodeType.output:
+        return _buildLabelSettings(context, "خروجی");
       default:
         return Container(
           padding: const EdgeInsets.all(20),
@@ -96,6 +100,47 @@ class NodeSettingsPanel extends StatelessWidget {
               }
             },
           )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLabelSettings(BuildContext context, String nodeTypeName) {
+    final controller = TextEditingController(text: node.label);
+    return Padding(
+      padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 20,
+          right: 20,
+          top: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('تغییر نام باکس $nodeTypeName',
+              style: const TextStyle(color: Colors.white, fontSize: 18)),
+          const SizedBox(height: 20),
+          TextField(
+            controller: controller,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              labelText: 'نام جدید',
+              labelStyle: TextStyle(color: Colors.white70),
+              enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white54)),
+              focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.amber)),
+            ),
+            onSubmitted: (value) {
+              if (value.isNotEmpty) {
+                renderingSystem.manager?.send(
+                    UpdateNodeDataEvent(nodeId: nodeId, newLabel: value));
+              }
+              Navigator.of(context).pop();
+            },
+          ),
+          const SizedBox(height: 20),
         ],
       ),
     );
