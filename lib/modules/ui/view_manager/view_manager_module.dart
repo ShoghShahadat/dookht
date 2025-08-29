@@ -1,3 +1,9 @@
+// FILE: lib/modules/ui/view_manager/view_manager_module.dart
+// (English comments for code clarity)
+// MODIFIED v2.0: CRITICAL FIX - Added a PersistenceComponent to the view_manager
+// entity. This ensures that the current view state is saved when the app
+// closes and restored on startup, preventing the blank screen issue.
+
 import 'package:nexus/nexus.dart';
 import 'view_manager_system.dart';
 import 'view_manager_component.dart';
@@ -18,6 +24,8 @@ class ViewManagerModule extends NexusModule {
     final viewManager = Entity()
       ..add(TagsComponent({'view_manager'}))
       ..add(LifecyclePolicyComponent(isPersistent: true))
+      // CRITICAL FIX: Ensure the view state is persisted.
+      ..add(PersistenceComponent('view_manager_state'))
       ..add(ViewStateComponent(currentView: AppView.customerList));
     world.addEntity(viewManager);
   }

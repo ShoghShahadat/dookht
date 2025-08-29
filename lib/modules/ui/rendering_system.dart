@@ -1,9 +1,6 @@
 // FILE: lib/modules/ui/rendering_system.dart
 // (English comments for code clarity)
-// MODIFIED v5.0: FINAL FIX - The new page during a transition is now wrapped
-// in a Container with an opaque gradient background. This ensures it completely
-// covers the old page, fixing the semi-transparency issue and creating a
-// seamless and visually correct transition effect.
+// MODIFIED v8.0: All debug logs have been removed for a clean production-ready file.
 
 import 'package:flutter/material.dart';
 import 'package:nexus/nexus.dart';
@@ -31,21 +28,13 @@ class AppRenderingSystem extends FlutterRenderingSystem {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: this,
-      builder: (context, child) {
-        final viewManagerId = getAllIdsWithTag('view_manager').firstOrNull;
-
-        return Scaffold(
-          body: Stack(
-            children: [
-              // The main background is now part of the main view logic
-              // to be correctly layered during transitions.
-              if (viewManagerId != null) _buildMainView(context, viewManagerId),
-            ],
-          ),
-        );
-      },
+    final viewManagerId = getAllIdsWithTag('view_manager').firstOrNull;
+    return Scaffold(
+      body: Stack(
+        children: [
+          if (viewManagerId != null) _buildMainView(context, viewManagerId),
+        ],
+      ),
     );
   }
 
@@ -97,8 +86,6 @@ class AppRenderingSystem extends FlutterRenderingSystem {
               ClipPath(
                 clipper: _getClipperForTransition(
                     transitionState.type, transitionState.progress),
-                // **CRITICAL FIX**: Wrap the new view in an opaque container
-                // with the same background gradient.
                 child: Container(
                   decoration: _getGradientDecoration(),
                   child: newViewWidget,

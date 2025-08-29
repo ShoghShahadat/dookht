@@ -1,11 +1,13 @@
 // FILE: lib/modules/ui/transitions/transition_system.dart
 // (English comments for code clarity)
-// MODIFIED v2.0: Added specialized logging.
+// MODIFIED v7.0: CRITICAL REFACTOR - Reverted to the correct two-phase state
+// update model. The definitive ViewStateComponent is now updated ONLY at the
+// end of the animation in the onComplete callback. This is the correct pattern
+// to prevent visual glitches and race conditions.
 
 import 'dart:math';
 import 'package:collection/collection.dart';
 import 'package:flutter/animation.dart' show Curves;
-import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
 import 'package:tailor_assistant/modules/ui/transitions/transition_component.dart';
 import 'package:tailor_assistant/modules/ui/view_manager/view_manager_component.dart';
@@ -22,39 +24,32 @@ class TransitionSystem extends System {
   }
 
   void _onRequestViewChange(RequestViewChangeEvent event) {
-    debugPrint(
-        "[LOG | TransitionSystem] --> Received RequestViewChangeEvent for view: ${event.view.name}.");
     final viewManager = world.entities.values
         .firstWhereOrNull((e) => e.has<ViewStateComponent>());
-    if (viewManager == null) {
-      debugPrint(
-          "[LOG | TransitionSystem] --! Aborted: ViewManager entity not found.");
-      return;
-    }
+    if (viewManager == null) return;
 
     final viewState = viewManager.get<ViewStateComponent>()!;
     final transitionState = viewManager.get<TransitionComponent>();
 
-    if (transitionState?.isRunning == true) {
-      debugPrint(
-          "[LOG | TransitionSystem] --! Aborted: A transition is already in progress.");
-      return;
-    }
+    if (transitionState?.isRunning == true) return;
+    if (viewState.currentView == event.view) return;
 
+    final oldView = viewState.currentView;
+    final newView = event.view;
+
+    // 1. Create the visual transition effect component.
     final nextEffect =
         TransitionType.values[_random.nextInt(TransitionType.values.length)];
-    debugPrint(
-        "[LOG | TransitionSystem] <-- Starting transition from ${viewState.currentView.name} to ${event.view.name} with effect: ${nextEffect.name}.");
-
     final newTransition = TransitionComponent(
       type: nextEffect,
-      oldView: viewState.currentView,
-      newView: event.view,
+      oldView: oldView,
+      newView: newView,
       isRunning: true,
       progress: 0.0,
     );
     viewManager.add(newTransition);
 
+    // 2. Add an animation component to drive the visual effect.
     viewManager.add(AnimationComponent(
       duration: const Duration(milliseconds: 1200),
       curve: Curves.easeInOut,
@@ -69,15 +64,16 @@ class TransitionSystem extends System {
         ));
       },
       onComplete: (entity) {
-        debugPrint(
-            "[LOG | TransitionSystem] --- Transition animation complete. Finalizing view state.");
+        // 3. AT THE END of the animation, finalize the state change.
         final finalTransition = entity.get<TransitionComponent>()!;
         entity.add(ViewStateComponent(
-          currentView: finalTransition.newView,
+          currentView: newView, // The definitive state is updated here.
           activeCustomerId: event.customerId ?? viewState.activeCustomerId,
           activeMethodId: event.methodId ?? viewState.activeMethodId,
           activeFormulaKey: event.formulaKey ?? viewState.activeFormulaKey,
         ));
+
+        // Mark the visual effect as complete.
         entity.add(TransitionComponent(
           type: finalTransition.type,
           oldView: finalTransition.oldView,

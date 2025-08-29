@@ -1,24 +1,21 @@
 // FILE: lib/modules/lifecycle/app_lifecycle_system.dart
 // (English comments for code clarity)
-// MODIFIED v2.0: CRITICAL REFACTOR - This system is now the single source of
-// truth for both SAVING and LOADING all persistent data.
-// - Added a robust data loading mechanism in the `init()` method.
-// - It now correctly reconstructs all entities from Hive.
-// - It populates the customer list container after loading.
+// MODIFIED v3.0: CRITICAL REFACTOR - This system is now fully decoupled from
+// Hive. It now depends on the StorageAdapter interface, which is retrieved
+// from GetIt. This improves testability and adheres to SOLID principles.
 
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:hive/hive.dart';
 import 'package:nexus/nexus.dart';
 import 'package:nexus/src/events/app_lifecycle_event.dart';
 import 'package:tailor_assistant/modules/customers/components/customer_component.dart';
-import 'package:tailor_assistant/services/hive_storage_adapter.dart';
 import 'package:collection/collection.dart';
 
 /// A system that listens for application lifecycle changes and triggers
 /// actions, such as saving and loading data.
 class AppLifecycleSystem extends System {
   bool _hasLoaded = false;
+  late final StorageAdapter _storage;
 
   @override
   void onAddedToWorld(NexusWorld world) {
@@ -27,11 +24,11 @@ class AppLifecycleSystem extends System {
     listen<SaveDataEvent>((_) => _saveAllData());
   }
 
-  /// The init method is the perfect place for one-time setup logic like loading data.
-  /// It runs after all modules are loaded but before the first update tick.
   @override
   Future<void> init() async {
     if (_hasLoaded) return;
+    // Get the storage implementation from the service locator.
+    _storage = services.get<StorageAdapter>();
     await _loadAllData();
     _hasLoaded = true;
   }
@@ -46,25 +43,20 @@ class AppLifecycleSystem extends System {
     }
   }
 
-  /// Loads all persisted entities from Hive and reconstructs the world state.
+  /// Loads all persisted entities from the storage adapter.
   Future<void> _loadAllData() async {
-    debugPrint("📂 [Persistence] ➡️ Initiating load...");
-    final box = Hive.box(HiveStorageAdapter.boxName);
+    debugPrint("📂 [Persistence] ➡️ Initiating load via StorageAdapter...");
+    final allData = await _storage.loadAll();
 
-    if (box.isEmpty) {
+    if (allData.isEmpty) {
       debugPrint("📂 [Persistence] 🧐 No data found in storage to load.");
       return;
     }
 
     final List<EntityId> reconstructedCustomerIds = [];
 
-    for (final key in box.keys) {
-      if (key is! String || !key.startsWith('nexus_')) continue;
-
-      final jsonString = box.get(key) as String?;
-      if (jsonString == null) continue;
-
-      final entityData = jsonDecode(jsonString) as Map<String, dynamic>;
+    for (final key in allData.keys) {
+      final entityData = allData[key]!;
       final entity = Entity();
 
       for (final typeName in entityData.keys) {
@@ -79,14 +71,12 @@ class AppLifecycleSystem extends System {
         }
       }
 
-      // Ensure all loaded entities are marked as persistent
       if (!entity.has<LifecyclePolicyComponent>()) {
         entity.add(LifecyclePolicyComponent(isPersistent: true));
       }
 
       world.addEntity(entity);
 
-      // If it's a customer, keep track of its ID to populate the list later
       if (entity.has<CustomerComponent>()) {
         reconstructedCustomerIds.add(entity.id);
       }
@@ -94,7 +84,6 @@ class AppLifecycleSystem extends System {
           "📂 [Persistence] ✅ Reconstructed Entity ID ${entity.id} for key '$key'.");
     }
 
-    // After all entities are loaded, update the UI container for the customer list.
     final listContainer = world.entities.values.firstWhereOrNull((e) =>
         e.get<TagsComponent>()?.hasTag('customer_list_container') ?? false);
 
@@ -105,11 +94,9 @@ class AppLifecycleSystem extends System {
     }
   }
 
-  /// Saves all entities with a PersistenceComponent to Hive.
+  /// Saves all entities with a PersistenceComponent via the storage adapter.
   Future<void> _saveAllData() async {
-    debugPrint("💾 [Persistence] ➡️ Initiating save...");
-    final box = Hive.box(HiveStorageAdapter.boxName);
-
+    debugPrint("💾 [Persistence] ➡️ Initiating save via StorageAdapter...");
     final entitiesToSave =
         world.entities.values.where((e) => e.has<PersistenceComponent>());
 
@@ -118,9 +105,7 @@ class AppLifecycleSystem extends System {
       return;
     }
 
-    // Use a map to batch writes for better performance
-    final Map<String, String> writes = {};
-
+    int savedCount = 0;
     for (final entity in entitiesToSave) {
       final key = entity.get<PersistenceComponent>()!.storageKey;
       final entityJson = <String, dynamic>{};
@@ -131,15 +116,15 @@ class AppLifecycleSystem extends System {
               (component as SerializableComponent).toJson();
         }
       }
-      writes['nexus_$key'] = jsonEncode(entityJson);
+      // The storage adapter contract expects the 'nexus_' prefix.
+      await _storage.save('nexus_$key', entityJson);
+      savedCount++;
     }
-
-    await box.putAll(writes);
-    debugPrint("💾 [Persistence] ✅ Saved ${writes.length} entities.");
+    debugPrint("💾 [Persistence] ✅ Saved $savedCount entities.");
   }
 
   @override
-  bool matches(Entity entity) => false; // Purely event-driven
+  bool matches(Entity entity) => false;
 
   @override
   void update(Entity entity, double dt) {}

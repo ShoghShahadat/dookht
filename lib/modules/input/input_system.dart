@@ -1,9 +1,10 @@
 // FILE: lib/modules/input/input_system.dart
 // (English comments for code clarity)
-// MODIFIED v2.0: Added specialized logging.
+// MODIFIED v8.0: FINAL VERSION - Reverted to the most robust and simple
+// event-driven model. This ensures immediate and reliable processing of
+// user input without unnecessary complexity.
 
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:nexus/nexus.dart';
 
 /// A central system that listens for input events (like taps) sent from the UI
@@ -12,37 +13,22 @@ class InputSystem extends System {
   @override
   void onAddedToWorld(NexusWorld world) {
     super.onAddedToWorld(world);
-    // Listen for tap events coming from the rendering layer.
+    // Listen for tap events and process them immediately. This is the most
+    // direct and reliable approach for this application's needs.
     listen<EntityTapEvent>(_onTap);
   }
 
   void _onTap(EntityTapEvent event) {
-    debugPrint(
-        "[LOG | InputSystem] --> Received EntityTapEvent for ID: ${event.id}.");
-    // Find the entity that was tapped using its ID.
     final entity = world.entities[event.id];
-    if (entity == null) {
-      debugPrint(
-          "[LOG | InputSystem] --! Aborted: Entity with ID ${event.id} not found.");
-      return;
-    }
+    if (entity == null) return;
 
-    // Get the ClickableComponent attached to that entity.
     final clickable = entity.get<ClickableComponent>();
-
-    if (clickable != null) {
-      debugPrint(
-          "[LOG | InputSystem] <-- Executing ClickableComponent's onTap for entity ${event.id}.");
-      // Execute the onTap function associated with that component.
-      clickable.onTap(entity);
-    } else {
-      debugPrint(
-          "[LOG | InputSystem] --! Warning: Entity ${event.id} received a tap event but has no ClickableComponent.");
-    }
+    clickable?.onTap(entity);
   }
 
+  // This system is purely event-driven and does not need an update loop.
   @override
-  bool matches(Entity entity) => false; // This system is purely event-driven.
+  bool matches(Entity entity) => false;
 
   @override
   void update(Entity entity, double dt) {}
